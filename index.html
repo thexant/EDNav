@@ -249,11 +249,25 @@
         }
 
         .checkbox-label input[type="checkbox"] { margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--purple); }
+        
+        /* Specific accent color overrides */
+        .checkbox-group.narrative-fleet input[type="checkbox"] { accent-color: var(--info); }
 
         /* Narrative Specific Styles */
         .chapter-container { display: none; animation: fadeIn 0.5s ease-in; }
         .chapter-container.active { display: block; }
         
+        .narrative-step {
+            margin-bottom: 10px;
+            padding-left: 15px;
+            border-left: 2px solid var(--info);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        
+        .narrative-step strong { color: var(--info); }
+
         .next-chapter-btn {
             width: 100%;
             padding: 10px;
@@ -307,7 +321,7 @@
     <div id="mode-random" class="mode-content">
         <div class="form-group">
             <label for="systemName">Current System *</label>
-            <input type="text" id="systemName" value="Col 285 Sector CL-U b4-1" required>
+            <input type="text" id="systemName" placeholder="e.g., Sol or Jameson Memorial" required>
         </div>
         
         <div class="form-group">
@@ -385,7 +399,7 @@
         
         <div class="form-group">
             <label for="missionSystem">Current System *</label>
-            <input type="text" id="missionSystem" value="Col 285 Sector CL-U b4-1" required>
+            <input type="text" id="missionSystem" placeholder="Where are you currently docked?" required>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -425,7 +439,7 @@
         
         <div class="form-group">
             <label for="tourismSystem">Current System *</label>
-            <input type="text" id="tourismSystem" value="Col 285 Sector CL-U b4-1" required>
+            <input type="text" id="tourismSystem" placeholder="Where is the tour starting?" required>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -463,23 +477,46 @@
     </div>
 
     <div id="mode-narrative" class="mode-content">
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a multi-stage operational campaign. WOSC contacts will provide instructions step-by-step.</p>
-        <div class="form-group">
-            <label>Origin System *</label>
-            <input type="text" id="narrativeSystem" value="Col 285 Sector CL-U b4-1" required>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a multi-stage operational campaign. Faction handlers will provide step-by-step instructions.</p>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label>Origin System *</label>
+                <input type="text" id="narrativeSystem" placeholder="Current Location" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>Home Base (Optional)</label>
+                <input type="text" id="narrativeHomeBase" placeholder="e.g., Jameson Memorial">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Max Operational Radius (Ly) *</label>
-            <input type="number" id="narrativeRadius" value="60" min="20" max="150" required>
+
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label>Op Radius (Ly) *</label>
+                <input type="number" id="narrativeRadius" value="60" min="20" max="150" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>Campaign Length</label>
+                <select id="narrativeLength">
+                    <option value="3">Standard (3 Chapters)</option>
+                    <option value="4">Extended (4 Chapters)</option>
+                    <option value="5">Epic (5 Chapters)</option>
+                </select>
+            </div>
         </div>
+
         <div class="form-group">
-            <label>Campaign Length</label>
-            <select id="narrativeLength">
-                <option value="3">Standard (3 Chapters)</option>
-                <option value="4">Extended (4 Chapters)</option>
-                <option value="5">Epic (5 Chapters)</option>
-            </select>
+            <label>Available Fleet (For Ship Switching Directives)</label>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0;">Check the ship types currently docked at your Home Base.</p>
+            <div class="checkbox-group narrative-fleet" id="narrativeFleetCheckboxes">
+                <label class="checkbox-label"><input type="checkbox" value="Combat" checked> Heavy Combat</label>
+                <label class="checkbox-label"><input type="checkbox" value="Hauler" checked> Heavy Hauler</label>
+                <label class="checkbox-label"><input type="checkbox" value="Explorer" checked> Deep Space Explorer</label>
+                <label class="checkbox-label"><input type="checkbox" value="Smuggler" checked> Blockade Runner / Smuggler</label>
+                <label class="checkbox-label"><input type="checkbox" value="Multi" checked> Multi-Role</label>
+            </div>
         </div>
+
         <button class="submit-btn" id="narrativeBtn" onclick="executeSearch('narrative')" style="background-color: var(--info); color: #000;">Initialize Campaign</button>
         <div id="loader-narrative" class="loader">Constructing narrative threads...</div>
         <div id="result-box-narrative" class="result-box"></div>
@@ -509,7 +546,6 @@
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
         
-        // Find the button that called this and make it active
         document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
         document.getElementById('mode-' + tabId).classList.add('active');
         
@@ -551,7 +587,6 @@
             });
         }
         
-        // Trigger the change event manually to update the stops input correctly
         missionSelect.dispatchEvent(new Event('change'));
     }
 
@@ -579,6 +614,15 @@
             const lengths = ['3', '4', '5'];
             document.getElementById('narrativeLength').value = lengths[Math.floor(Math.random() * lengths.length)];
         }
+
+        // Auto-fill a default system if empty to make Scramble truly 1-click
+        const systemIds = {
+            'mission': 'missionSystem',
+            'tourism': 'tourismSystem',
+            'narrative': 'narrativeSystem'
+        };
+        const activeSysInput = document.getElementById(systemIds[randomTab]);
+        if(!activeSysInput.value.trim()) activeSysInput.value = "Sol";
 
         executeSearch(randomTab);
     }
@@ -1134,46 +1178,125 @@
         throw new Error(`Could not construct an itinerary with ${stopsCount} stops. Try increasing the base radius, selecting more packages, or turning on Auto-Expand.`);
     }
 
-    // 4. Narrative Logic
+    // 4. Narrative Logic (Multi-Step Chapters)
     async function handleNarrativeLogic(searchPool, loader, resultBox, startSys) {
         const length = parseInt(document.getElementById('narrativeLength').value) || 3;
-        const profile = document.getElementById('globalShipProfile').value;
-        
-        const possibleSteps = [
-            { type: 'Salvage', desc: "Locate and recover sensitive WOSC black box data from a signal source.", shipExclude: [] },
-            { type: 'Surface', desc: "Deploy SRV to a planetary settlement to extract target coordinates.", shipExclude: ['Hauler'] },
-            { type: 'Combat', desc: "Eliminate a pirate lord who intercepted the previous data packet.", shipExclude: ['Hauler', 'Explorer', 'Smuggler'] },
-            { type: 'Smuggling', desc: "Slip the recovered assets into a black market unnoticed.", shipExclude: ['Combat', 'Hauler', 'Explorer'] },
-            { type: 'Freelance', desc: "Meet with a local contact at a remote outpost to hand off the goods.", shipExclude: [] }
+        const homeBase = document.getElementById('narrativeHomeBase').value.trim();
+        const fleetCheckboxes = document.querySelectorAll('#narrativeFleetCheckboxes input[type="checkbox"]:checked');
+        const availableFleet = Array.from(fleetCheckboxes).map(cb => cb.value);
+
+        if(availableFleet.length === 0) throw new Error("Please select at least one ship type from your Available Fleet.");
+
+        let activeShip = document.getElementById('globalShipProfile').value;
+
+        const templates = [
+            {
+                type: 'Salvage Operation',
+                reqShip: ['Multi', 'Explorer'],
+                desc: "A faction operative's vessel was destroyed. We need the flight logs recovered.",
+                generate: (sys, loc) => [
+                    `Jump to the <strong>${sys}</strong> system.`,
+                    `Scan the local Nav Beacon or use your FSS to locate the distress signal.`,
+                    `Drop into the target signal source (Degraded/Combat Aftermath) and recover the encrypted Black Box.`,
+                    `Store the data securely in your cargo hold.`
+                ]
+            },
+            {
+                type: 'Targeted Assassination',
+                reqShip: ['Combat', 'Multi'],
+                desc: "A syndicate enforcer has intercepted our data. Eliminate them.",
+                generate: (sys, loc) => [
+                    `Infiltrate the <strong>${sys}</strong> system.`,
+                    `Locate the target operating near <strong>${loc}</strong>.`,
+                    `Interdict the target vessel and eliminate them. Leave no witnesses.`
+                ]
+            },
+            {
+                type: 'Covert Extraction',
+                reqShip: ['Smuggler', 'Multi'],
+                desc: "An asset needs immediate extraction from hostile territory.",
+                generate: (sys, loc) => [
+                    `Proceed quietly to the <strong>${sys}</strong> system.`,
+                    `Approach <strong>${loc}</strong>. Use heatsinks or silent running to avoid system authority scans.`,
+                    `Dock, load the sensitive cargo/VIP, and immediately depart the mass-lock zone.`
+                ]
+            },
+            {
+                type: 'Planetary Recon',
+                reqShip: ['Explorer', 'Multi', 'Combat'],
+                desc: "We require local telemetry from a planetary installation.",
+                generate: (sys, loc) => [
+                    `Maps to the <strong>${sys}</strong> system.`,
+                    `Enter orbital glide and approach planetary coordinates near <strong>${loc}</strong>.`,
+                    `Deploy your SRV, breach the settlement perimeter, and interface with the target data terminal.`
+                ]
+            },
+            {
+                type: 'Heavy Logistics',
+                reqShip: ['Hauler', 'Multi'],
+                desc: "Critical infrastructure supplies must be delivered to an allied outpost.",
+                generate: (sys, loc) => [
+                    `Travel to the industrial center in <strong>${sys}</strong>.`,
+                    `Dock at <strong>${loc}</strong> and load up the designated heavy equipment.`,
+                    `Ensure the cargo holds are secure and deliver the manifest to the regional contact.`
+                ]
+            }
         ];
 
-        let validSteps = possibleSteps.filter(s => !s.shipExclude.includes(profile));
-        if(validSteps.length === 0) validSteps = possibleSteps;
+        // Filter templates to only those the player has ships for
+        let validTemplates = templates.filter(t => t.reqShip.some(ship => availableFleet.includes(ship)));
+        if(validTemplates.length === 0) throw new Error("Your selected fleet cannot complete any available operations. Try checking more ship types.");
 
         currentNarrativeData = [];
         let poolCopy = [...searchPool];
-        
-        loader.innerText = `3/3: Drafting WOSC Campaign Chapters...`;
+        loader.innerText = `3/3: Drafting Operational Directives...`;
 
         for(let i=0; i<length; i++) {
             if(poolCopy.length === 0) break;
-            const stepTheme = validSteps[Math.floor(Math.random() * validSteps.length)];
+            
+            const stepTheme = validTemplates[Math.floor(Math.random() * validTemplates.length)];
             let targetSys = poolCopy.pop();
             
             const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(targetSys.name)}`);
             const stationData = await stationRes.json();
             let targetLoc = "Deep Space Signal";
+            
             if(stationData.stations && stationData.stations.length > 0) {
                 const valid = stationData.stations.filter(s => !(s.type || "").includes("Fleet Carrier"));
                 if(valid.length > 0) targetLoc = valid[Math.floor(Math.random() * valid.length)].name;
+            }
+
+            let chapterSteps = [];
+            
+            // Check if we need to switch ships
+            const canDoWithCurrent = stepTheme.reqShip.includes(activeShip);
+            if(!canDoWithCurrent) {
+                const newShipType = stepTheme.reqShip.find(s => availableFleet.includes(s));
+                const switchLocation = homeBase ? `<strong>${homeBase}</strong>` : "your base of operations";
+                
+                let shipName = newShipType;
+                if(newShipType === 'Multi') shipName = 'Multi-Role';
+                if(newShipType === 'Combat') shipName = 'Heavy Combat';
+                if(newShipType === 'Hauler') shipName = 'Heavy Hauler';
+                
+                chapterSteps.push(`Return to ${switchLocation} and transfer to your <strong>${shipName}</strong> vessel.`);
+                activeShip = newShipType; // Update state
+            }
+
+            // Generate the procedural steps
+            chapterSteps = chapterSteps.concat(stepTheme.generate(targetSys.name, targetLoc));
+
+            // If it's the final chapter, add a conclusion step
+            if(i === length - 1) {
+                const endLocation = homeBase ? `<strong>${homeBase}</strong>` : "a secure allied station";
+                chapterSteps.push(`Operation complete. Return to ${endLocation} for debriefing and payment.`);
             }
 
             currentNarrativeData.push({
                 chapter: i + 1,
                 theme: stepTheme.type,
                 desc: stepTheme.desc,
-                system: targetSys.name,
-                location: targetLoc
+                steps: chapterSteps
             });
         }
 
@@ -1188,27 +1311,27 @@
     function renderNarrativeUI(resultBox) {
         resultBox.style.display = 'block';
         let html = `
-            <div class="mission-title" style="color: var(--info); border-color: var(--info);">Campaign: Operation Maelstrom</div>
+            <div class="mission-title" style="color: var(--info); border-color: var(--info);">Encrypted Faction Directive</div>
             <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(139, 233, 253, 0.05); border-left-color: var(--info);">
-                "Commander, the Wasabi Orbital Social Club has a multi-stage operation for you. We need to keep this compartmentalized. You will receive instructions one chapter at a time. Do not proceed until the current objective is complete."
+                "Commander, local handlers have compiled a multi-stage operation. We need to keep this compartmentalized. You will receive instructions one chapter at a time. Execute the steps in order."
             </div>
             <div id="chapters-container">
         `;
 
         currentNarrativeData.forEach((ch, index) => {
+            let stepsHtml = "";
+            ch.steps.forEach((step, stepIdx) => {
+                stepsHtml += `<div class="narrative-step">Step ${stepIdx + 1}: ${step}</div>`;
+            });
+
             html += `
             <div class="chapter-container ${index === 0 ? 'active' : ''}" id="chapter-${index}">
                 <div class="cargo-route" style="border-color: var(--info); background-color: rgba(139, 233, 253, 0.05);">
                     <div style="color: var(--info); font-weight: bold; margin-bottom: 8px;">CHAPTER ${ch.chapter}: ${ch.theme.toUpperCase()}</div>
-                    <div style="font-style: italic; color: #a5b4fc; margin-bottom: 15px;">"${ch.desc}"</div>
+                    <div style="font-style: italic; color: #a5b4fc; margin-bottom: 15px; font-size: 0.9rem;">"${ch.desc}"</div>
                     
-                    <div class="result-item">
-                        <div class="result-label">Target System</div>
-                        <div class="result-value flex-val">${ch.system} <button class="copy-btn" onclick="copyToClipboard('${ch.system}', this)">📋</button></div>
-                    </div>
-                    <div class="result-item">
-                        <div class="result-label">Primary POI</div>
-                        <div class="result-value" style="color: #c9d1d9;">${ch.location}</div>
+                    <div style="margin-top: 15px;">
+                        ${stepsHtml}
                     </div>
                 </div>
                 ${index < currentNarrativeData.length - 1 ? 
