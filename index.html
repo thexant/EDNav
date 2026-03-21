@@ -503,9 +503,9 @@
             <div class="form-group" style="flex: 1;">
                 <label>Campaign Length</label>
                 <select id="narrativeLength">
-                    <option value="3">Standard (3 Chapters)</option>
-                    <option value="4">Extended (4 Chapters)</option>
-                    <option value="5">Epic (5 Chapters)</option>
+                    <option value="5">Short (5 Chapters)</option>
+                    <option value="7">Extended (7 Chapters)</option>
+                    <option value="10">Epic (10 Chapters)</option>
                 </select>
             </div>
         </div>
@@ -1223,84 +1223,83 @@
         if(availableFleet.length === 0) throw new Error("Please select at least one ship type from your Available Fleet.");
 
         let activeShip = document.getElementById('globalShipProfile').value;
-
-        const templates = [
+        const campaignArcs = [
             {
-                type: 'Salvage Operation',
-                reqShip: ['Multi', 'Explorer', 'Rescue', 'TransportLight'],
-                desc: "A faction operative's vessel was destroyed. We need the flight logs recovered.",
-                generate: (sys, loc) => [
-                    `Jump to the <strong>${sys}</strong> system.`,
-                    `Scan the local Nav Beacon or use your FSS to locate the distress signal.`,
-                    `Drop into the target signal source (Degraded/Combat Aftermath) and recover the encrypted Black Box.`,
-                    `Store the data securely in your cargo hold.`
+                theme: 'Corporate Espionage & Sabotage',
+                reqShip: ['Multi', 'Smuggler', 'CombatLight', 'Explorer'],
+                desc: "A rival corporation is developing a devastating prototype. We are dismantling their operation piece by piece.",
+                phases: [
+                    (sys, loc) => [`Infiltrate the <strong>${sys}</strong> system. Keep a low profile.`, `Approach <strong>${loc}</strong> and scan their local data links or planetary networks to intercept their encrypted shipping manifests.`],
+                    (sys, loc) => [`The decoded data pointed us to a vulnerable supply depot in <strong>${sys}</strong>.`, `Intercept and destroy their corporate supply convoys near <strong>${loc}</strong> to starve their project of vital materials.`],
+                    (sys, loc) => [`With their supplies cut, their lead researcher is attempting to flee our sector.`, `Track their emissions signature to <strong>${sys}</strong>, locate them near <strong>${loc}</strong>, and eliminate the target before they escape.`],
+                    (sys, loc) => [`We need to know exactly where the prototype is housed.`, `Fly to <strong>${sys}</strong> and hack the local security terminals at <strong>${loc}</strong> to download the facility coordinates.`],
+                    (sys, loc) => [`The prototype is exposed at a testing facility in <strong>${sys}</strong>.`, `Assault the installation near <strong>${loc}</strong>, bypass their security grid, and destroy the weapon.`],
+                    (sys, loc) => [`The corporation's executives are scrubbing the evidence and burning their agents.`, `Fly to <strong>${sys}</strong>, dock at <strong>${loc}</strong>, and extract our undercover informant before the corporate hit squads arrive.`],
+                    (sys, loc) => [`Our informant is injured and needs a secure drop-off.`, `Evade the interceptors hunting you and deliver the asset safely to the medical wing at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`A corporate wet-work team is retaliating for the extraction.`, `Drop into the signal sources in <strong>${sys}</strong> near <strong>${loc}</strong> and wipe out the hit squad.`],
+                    (sys, loc) => [`We're going for the killing blow. We need their offshore financial ledgers.`, `Deploy an SRV or use hatch-breakers at <strong>${loc}</strong> in <strong>${sys}</strong> to steal their encrypted financial data.`],
+                    (sys, loc) => [`The Board of Directors is holding an emergency meeting to assess the damage.`, `Travel to <strong>${sys}</strong>, locate the VIP vessel near <strong>${loc}</strong>, and assassinate the CEO to permanently cripple the corporation.`]
                 ]
             },
             {
-                type: 'Targeted Assassination',
-                reqShip: ['CombatLight', 'CombatHeavy', 'Multi'],
-                desc: "A syndicate enforcer has intercepted our data. Eliminate them.",
-                generate: (sys, loc) => [
-                    `Infiltrate the <strong>${sys}</strong> system.`,
-                    `Locate the target operating near <strong>${loc}</strong>.`,
-                    `Interdict the target vessel and eliminate them. Leave no witnesses.`
+                theme: 'The Ghost Ship Mystery',
+                reqShip: ['Explorer', 'Rescue', 'Multi', 'Passenger'],
+                desc: "An expedition ship vanished weeks ago. We've just picked up a faint, corrupted distress signal.",
+                phases: [
+                    (sys, loc) => [`Jump to the <strong>${sys}</strong> system where the signal originated.`, `Locate the distress beacon near <strong>${loc}</strong>, drop into the wreckage, and salvage the ship's black box.`],
+                    (sys, loc) => [`The black box data is heavily encrypted. We need a specialist.`, `Transport the drive to a contact operating out of <strong>${loc}</strong> in the <strong>${sys}</strong> system for decryption.`],
+                    (sys, loc) => [`The decrypted logs point to a forced detour. Follow their telemetry to <strong>${sys}</strong>.`, `Scan the bodies near <strong>${loc}</strong> to find the unmarked planetary site where the crew was taken.`],
+                    (sys, loc) => [`We've confirmed survivors are being held by a local pirate syndicate in <strong>${sys}</strong>.`, `Infiltrate <strong>${loc}</strong>, secure the hostages, and load them into your cabins.`],
+                    (sys, loc) => [`The syndicate is sending interceptors to silence the survivors.`, `Evade interdiction and deliver the crew safely to medical facilities at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`One of the survivors mentioned experimental tech still left at the ambush site.`, `Return to <strong>${sys}</strong> and scavenge the remaining degraded emission sites near <strong>${loc}</strong> for the stolen tech.`],
+                    (sys, loc) => [`The tech is unstable and needs containment.`, `Transport the salvaged components to an allied engineering outpost at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The syndicate is trying to cover their tracks by wiping the local comms relays.`, `Fly to <strong>${sys}</strong> and defend the relay station near <strong>${loc}</strong> from attacking pirate forces.`],
+                    (sys, loc) => [`We have the location of the syndicate leader who ordered the attack.`, `Track the target down in the <strong>${sys}</strong> system near <strong>${loc}</strong> and execute them.`],
+                    (sys, loc) => [`The mystery is solved, but the victims' families need closure.`, `Deliver the recovered personal effects and final expedition logs to their home port at <strong>${loc}</strong> in <strong>${sys}</strong>.`]
                 ]
             },
             {
-                type: 'Covert Extraction',
-                reqShip: ['Smuggler', 'CombatLight', 'Multi'],
-                desc: "An asset needs immediate extraction from hostile territory.",
-                generate: (sys, loc) => [
-                    `Proceed quietly to the <strong>${sys}</strong> system.`,
-                    `Approach <strong>${loc}</strong>. Use heatsinks or silent running to avoid system authority scans.`,
-                    `Dock, load the sensitive cargo/VIP, and immediately depart the mass-lock zone.`
+                theme: 'Syndicate Crackdown',
+                reqShip: ['CombatHeavy', 'CombatLight', 'Multi'],
+                desc: "A powerful crime syndicate is suffocating local trade. It's time to cut the head off the snake.",
+                phases: [
+                    (sys, loc) => [`Deploy to the <strong>${sys}</strong> system.`, `Investigate signal sources near <strong>${loc}</strong> to identify and eliminate the syndicate's low-level scouts and spotters.`],
+                    (sys, loc) => [`They are moving illicit funds through a front company in <strong>${sys}</strong>.`, `Hack the terminal network at <strong>${loc}</strong> to freeze their assets and force their leadership out of hiding.`],
+                    (sys, loc) => [`A syndicate lieutenant has been flushed out and is rallying forces in <strong>${sys}</strong>.`, `Track the lieutenant to <strong>${loc}</strong> and assassinate them.`],
+                    (sys, loc) => [`The remaining enforcers are retaliating by blockading <strong>${sys}</strong>.`, `Drop into the combat zones near <strong>${loc}</strong> and help local security forces break the blockade.`],
+                    (sys, loc) => [`They are hiding weapons in an unmarked cache.`, `Search the planetary surfaces in <strong>${sys}</strong> near <strong>${loc}</strong> and destroy the skimmers guarding their stockpile.`],
+                    (sys, loc) => [`We have a high-profile prosecutor willing to testify against them.`, `Pick up the VIP from <strong>${loc}</strong> in <strong>${sys}</strong> and ensure their safety.`],
+                    (sys, loc) => [`The syndicate has deployed heavy gunships to intercept the prosecutor.`, `Draw their fire in the <strong>${sys}</strong> system near <strong>${loc}</strong> and destroy the ambushers.`],
+                    (sys, loc) => [`We need to sever their communications network.`, `Infiltrate the data point at <strong>${loc}</strong> in <strong>${sys}</strong> and upload our localized virus.`],
+                    (sys, loc) => [`The syndicate boss's elite guard is making a push against our local station.`, `Defend <strong>${loc}</strong> in the <strong>${sys}</strong> system from the incoming assault wave.`],
+                    (sys, loc) => [`The syndicate boss is making a final stand in <strong>${sys}</strong>.`, `Assault their heavily fortified position at <strong>${loc}</strong> and end their reign once and for all.`]
                 ]
             },
             {
-                type: 'Planetary Recon',
-                reqShip: ['Explorer', 'Multi', 'CombatLight', 'Rescue'],
-                desc: "We require local telemetry from a planetary installation.",
-                generate: (sys, loc) => [
-                    `Map a route to the <strong>${sys}</strong> system.`,
-                    `Enter orbital glide and approach planetary coordinates near <strong>${loc}</strong>.`,
-                    `Deploy your SRV, breach the settlement perimeter, and interface with the target data terminal.`
-                ]
-            },
-            {
-                type: 'Heavy Logistics',
-                reqShip: ['TransportHeavy', 'TransportLight', 'Multi'],
-                desc: "Critical infrastructure supplies must be delivered to an allied outpost.",
-                generate: (sys, loc) => [
-                    `Travel to the industrial center in <strong>${sys}</strong>.`,
-                    `Dock at <strong>${loc}</strong> and load up the designated heavy equipment.`,
-                    `Ensure the cargo holds are secure and deliver the manifest to the regional contact.`
-                ]
-            },
-            {
-                type: 'VIP Escort',
-                reqShip: ['Passenger', 'Multi', 'TransportLight'],
-                desc: "A high-profile political figure requires transport off the grid.",
-                generate: (sys, loc) => [
-                    `Maps to the <strong>${sys}</strong> system and ensure your passenger cabins are prepped.`,
-                    `Land at <strong>${loc}</strong> to receive the VIP. Provide a smooth flight; hull damage will compromise the payout.`,
-                    `Transport them to their destination while evading any interdiction attempts by rival factions.`
-                ]
-            },
-            {
-                type: 'Industrial Strike',
-                reqShip: ['Industrial', 'Multi', 'TransportHeavy'],
-                desc: "A rival faction is hoarding resources. Extract high-value minerals from their local rings.",
-                generate: (sys, loc) => [
-                    `Deploy to the pristine rings located in the <strong>${sys}</strong> system.`,
-                    `Use your prospector limpets to locate high-yield asteroids near <strong>${loc}</strong>.`,
-                    `Extract the payload and transport the refined minerals to our designated drop-off point.`
+                theme: 'Frontier Relief Effort',
+                reqShip: ['TransportHeavy', 'TransportLight', 'Multi', 'Industrial'],
+                desc: "A frontier system has been hit by disaster. We are coordinating a massive relief effort.",
+                phases: [
+                    (sys, loc) => [`Travel to the agricultural hub in <strong>${sys}</strong>.`, `Procure critical food cartridges and water purifiers from <strong>${loc}</strong> for the initial relief wave.`],
+                    (sys, loc) => [`Opportunistic scavengers are attacking the relief lines in <strong>${sys}</strong>.`, `Deliver the supplies to <strong>${loc}</strong>, ensuring you fend off or evade any pirate interdictions en route.`],
+                    (sys, loc) => [`The disaster crippled their infrastructure. They need heavy machinery.`, `Source industrial equipment and auto-fabricators from the refineries operating near <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`Transport the heavy machinery to <strong>${sys}</strong>.`, `Maps the debris fields near <strong>${loc}</strong> to deliver the payload to the repair crews.`],
+                    (sys, loc) => [`The system's economy is stabilizing, but they need raw materials to rebuild.`, `Mine or purchase bulk structural materials and deliver them to the primary starport at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`A local mining outpost suffered a collapse during the aftershocks.`, `Rush to <strong>${loc}</strong> in the <strong>${sys}</strong> system and deploy collector limpets to rescue the trapped escape pods.`],
+                    (sys, loc) => [`The rescued miners require immediate medical attention.`, `Transport the injured crew to the nearest triage center at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`A pirate warlord is exploiting the weakened system to extort the locals.`, `Track down the pirate leader in <strong>${sys}</strong> near <strong>${loc}</strong> and eliminate them to secure the trade lanes.`],
+                    (sys, loc) => [`The power grid is failing and requires emergency micro-controllers.`, `Source the high-tech components and rush them to the surface settlement at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The system is finally recovering and throwing a local celebration.`, `Procure luxury goods or rare commodities and deliver them to <strong>${loc}</strong> in <strong>${sys}</strong> to finalize the relief effort.`]
                 ]
             }
         ];
 
-        // Filter templates to only those the player has ships for
-        let validTemplates = templates.filter(t => t.reqShip.some(ship => availableFleet.includes(ship)));
-        if(validTemplates.length === 0) throw new Error("Your selected fleet cannot complete any available operations. Try checking more ship types.");
+        // Filter arcs to only those the player has ships for
+        let validArcs = campaignArcs.filter(arc => arc.reqShip.some(ship => availableFleet.includes(ship)));
+        if(validArcs.length === 0) throw new Error("Your selected fleet cannot complete any available campaigns. Try checking more ship types.");
+
+        // Select ONE cohesive campaign arc for this generation
+        const selectedArc = validArcs[Math.floor(Math.random() * validArcs.length)];
 
         currentNarrativeData = [];
         let poolCopy = [...searchPool];
@@ -1309,7 +1308,8 @@
         for(let i=0; i<length; i++) {
             if(poolCopy.length === 0) break;
             
-            const stepTheme = validTemplates[Math.floor(Math.random() * validTemplates.length)];
+            // Pull the correct sequential phase from the chosen Arc
+            const phaseFunc = selectedArc.phases[i % selectedArc.phases.length];
             let targetSys = poolCopy.pop();
             
             const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(targetSys.name)}`);
@@ -1354,13 +1354,13 @@
             // If it's the final chapter, add a conclusion step
             if(i === length - 1) {
                 const endLocation = homeBase ? `<strong>${homeBase}</strong>` : "a secure allied station";
-                chapterSteps.push(`Operation complete. Return to ${endLocation} for debriefing and payment.`);
+                chapterSteps.push(`Campaign objective achieved. Return to ${endLocation} for full debriefing and final payout.`);
             }
 
             currentNarrativeData.push({
                 chapter: i + 1,
-                theme: stepTheme.type,
-                desc: stepTheme.desc,
+                theme: `${selectedArc.theme} - Phase ${i + 1}`,
+                desc: selectedArc.desc,
                 steps: chapterSteps
             });
         }
