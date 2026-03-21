@@ -457,11 +457,13 @@
 
     async function handleRandomLogic(searchPool, loader, resultBox) {
         const filterAllegiance = document.getElementById('filterAllegiance').value;
+        const filterGovernment = document.getElementById('filterGovernment').value;
         const filterEconomy = document.getElementById('filterEconomy').value;
         const filterType = document.getElementById('filterType').value;
 
         let filteredPool = searchPool;
         if (filterAllegiance) filteredPool = filteredPool.filter(sys => sys.allegiance === filterAllegiance);
+        if (filterGovernment) filteredPool = filteredPool.filter(sys => sys.government === filterGovernment);
 
         for (let i = 0; i < Math.min(filteredPool.length, 10); i++) {
             const sys = filteredPool[i];
@@ -491,6 +493,8 @@
                     // Extracting additional info
                     const faction = loc.controllingFaction ? loc.controllingFaction.name : 'Unknown';
                     const allegiance = loc.allegiance || 'Independent';
+                    // Grab government from the station, or fallback to the system government
+                    const government = loc.government || sys.government || 'Unknown'; 
                     const economy = loc.economy || 'Unknown';
                     const distLs = loc.distanceToArrival ? Math.round(loc.distanceToArrival) + ' ls' : 'Unknown';
 
@@ -505,6 +509,7 @@
                         <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${loc.type || 'Unknown'}</div></div>
                         <div style="border-top: 1px solid var(--border); margin: 15px 0;"></div>
                         <div class="result-item"><div class="result-label">Controlling Faction</div><div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${faction} <span style="color: var(--text-muted);">(${allegiance})</span></div></div>
+                        <div class="result-item"><div class="result-label">Government</div><div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${government}</div></div>
                         <div class="result-item"><div class="result-label">Primary Economy</div><div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${economy}</div></div>
                     `;
                     resultBox.style.display = 'block';
