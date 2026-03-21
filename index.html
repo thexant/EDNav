@@ -1135,7 +1135,17 @@
                                 } else if (currentType === 'Luxury') {
                                     isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
                                 } else if (currentType === 'Adventure') {
-                                    isValid = st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
+                                    // 1. Restrict to surface locations only (removes standard orbital outposts)
+                                    const isSurface = st.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
+                                    
+                                    // 2. Require a "rugged" frontier economy to make them rarer and more thematic
+                                    const isRugged = ['Extraction', 'Refinery', 'Military', 'Colony', 'Terraforming'].some(e => econ.includes(e));
+                                    
+                                    // 3. Limit to 1 Adventure stop IF the user has selected a mixed itinerary
+                                    const adventureCount = routeStops.filter(s => s.stopType === 'Adventure').length;
+                                    const isOverLimit = (selectedTypes.length > 1 && adventureCount >= 1);
+                                
+                                    isValid = isSurface && isRugged && !isOverLimit;
                                 } else if (currentType === 'GrandTour') {
                                     isValid = (econ && econ !== "None" && econ !== "Unknown");
                                     if (isValid && usedGrandTourEconomies.has(econ)) return false; 
