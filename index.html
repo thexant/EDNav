@@ -1324,9 +1324,9 @@
             let chapterSteps = [];
             
             // Check if we need to switch ships
-            const canDoWithCurrent = stepTheme.reqShip.includes(activeShip);
+            const canDoWithCurrent = selectedArc.reqShip.includes(activeShip);
             if(!canDoWithCurrent) {
-                const newShipType = stepTheme.reqShip.find(s => availableFleet.includes(s));
+                const newShipType = selectedArc.reqShip.find(s => availableFleet.includes(s));
                 const switchLocation = homeBase ? `<strong>${homeBase}</strong>` : "your base of operations";
                 
                 let shipName = newShipType;
@@ -1347,9 +1347,9 @@
                 chapterSteps.push(`Return to ${switchLocation} and transfer to your <strong>${shipName}</strong> vessel.`);
                 activeShip = newShipType; // Update state
             }
-
+            
             // Generate the procedural steps
-            chapterSteps = chapterSteps.concat(stepTheme.generate(targetSys.name, targetLoc));
+            chapterSteps = chapterSteps.concat(phaseFunc(targetSys.name, targetLoc));
 
             // If it's the final chapter, add a conclusion step
             if(i === length - 1) {
