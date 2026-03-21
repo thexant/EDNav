@@ -385,13 +385,14 @@
 
         <div class="form-group">
             <label for="tourismType">Tour Package</label>
-            <select id="tourismType">
-                <option value="Beacons">Historical Sightseeing (Tourist Beacons)</option>
-                <option value="Anomalies">Astrotourism (High-G, Fast Orbits, Extreme Temps)</option>
-                <option value="GrandTour">The Grand Tour (Diverse Economies)</option>
-                <option value="Luxury">Luxury Resorts (Tourism Stations & Wealthy Ports)</option>
-                <option value="Adventure">Adventure Safari (Planetary & Outposts)</option>
-            </select>
+                <select id="tourismType">
+                    <option value="Mixed">The Immersive Mix (All Types)</option>
+                    <option value="Beacons">Historical Sightseeing (Tourist Beacons)</option>
+                    <option value="Anomalies">Astrotourism (High-G, Fast Orbits, Extreme Temps)</option>
+                    <option value="GrandTour">The Grand Tour (Diverse Economies)</option>
+                    <option value="Luxury">Luxury Resorts (Tourism Stations & Wealthy Ports)</option>
+                    <option value="Adventure">Adventure Safari (Planetary & Outposts)</option>
+                </select>
         </div>
 
         <button class="submit-btn" id="tourismBtn" onclick="executeSearch('tourism')" style="background-color: #bd93f9; color: #fff;">Generate Itinerary</button>
@@ -758,14 +759,17 @@
         let routeStops = [];
         let poolCopy = [...searchPool];
         let usedEconomies = new Set();
-
+        const mixedTypes = ['Beacons', 'Anomalies', 'GrandTour', 'Luxury', 'Adventure'];
+    
         for (let i = 0; i < poolCopy.length; i++) {
             if (routeStops.length >= stopsCount) break;
-
+    
             const sys = poolCopy[i];
-
-            // UNIQUE LOGIC FOR ASTRO-ANOMALIES (QUERIES BODIES API INSTEAD OF STATIONS)
-            if (tourType === 'Anomalies') {
+            
+            // If Mixed is selected, pick a random theme for this specific waypoint
+            let currentType = tourType === 'Mixed' ? mixedTypes[Math.floor(Math.random() * mixedTypes.length)] : tourType;
+    
+            if (currentType === 'Anomalies') {
                 loader.innerText = `3/3: Scanning ${sys.name} for astronomical anomalies (Waypoint ${routeStops.length + 1})...`;
                 try {
                     const bodyRes = await fetch(`https://www.edsm.net/api-system-v1/bodies?systemName=${encodeURIComponent(sys.name)}`);
@@ -779,7 +783,7 @@
                                    (b.surfaceTemperature && b.surfaceTemperature > 1500) ||
                                    (b.surfaceTemperature && b.surfaceTemperature < 30);
                         });
-
+    
                         if (anomalies.length > 0) {
                             const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
                             let reason = "Interesting Astronomical POI";
@@ -787,8 +791,8 @@
                             else if (loc.orbitalPeriod < 1.0) reason = `Fast Orbit (${loc.orbitalPeriod.toFixed(2)} days)`;
                             else if (loc.surfaceTemperature > 1500) reason = `Scorching Planet (${loc.surfaceTemperature}K)`;
                             else if (loc.surfaceTemperature < 30) reason = `Deep Freeze (${loc.surfaceTemperature}K)`;
-
-                            routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true });
+    
+                            routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true, stopType: currentType });
                             poolCopy.splice(i, 1);
                             i--;
                         }
@@ -799,35 +803,35 @@
                 await new Promise(r => setTimeout(r, 800));
                 continue;
             }
-
-            // STANDARD STATION LOGIC FOR ALL OTHER TOURISM TYPES
+    
+            // STANDARD STATION LOGIC
             loader.innerText = `3/3: Booking itinerary for waypoint ${routeStops.length + 1}...`;
             const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
             const stationData = await stationRes.json();
-
+    
             if (stationData.stations) {
                 const validStations = stationData.stations.filter(st => {
                     const type = st.type || "";
                     const econ = st.economy || "";
                     if (type.includes("Fleet Carrier")) return false;
                     
-                    if (tourType === 'Beacons') {
+                    if (currentType === 'Beacons') {
                         return type.includes("Beacon") || (st.name && st.name.includes("Beacon"));
-                    } else if (tourType === 'Luxury') {
+                    } else if (currentType === 'Luxury') {
                         return econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
-                    } else if (tourType === 'Adventure') {
+                    } else if (currentType === 'Adventure') {
                         return st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
-                    } else if (tourType === 'GrandTour') {
+                    } else if (currentType === 'GrandTour') {
                         if (!econ || econ === "None") return false;
                         if (usedEconomies.has(econ)) return false; 
                         return true;
                     }
                     return true;
                 });
-
+    
                 if (validStations.length > 0) {
                     const loc = validStations[Math.floor(Math.random() * validStations.length)];
-                    routeStops.push({ system: sys, location: loc });
+                    routeStops.push({ system: sys, location: loc, stopType: currentType });
                     if (loc.economy) usedEconomies.add(loc.economy);
                     poolCopy.splice(i, 1);
                     i--; 
@@ -835,12 +839,12 @@
             }
             await new Promise(r => setTimeout(r, 800)); 
         }
-
+    
         if (routeStops.length > 0) {
             renderTourismBriefing(routeStops, tourType, resultBox);
             return;
         }
-
+    
         throw new Error(`Could not construct a ${tourType} itinerary with ${stopsCount} stops. Try increasing the radius.`);
     }
 
@@ -954,57 +958,69 @@
         resultBox.style.display = 'block';
     }
 
-    function renderTourismBriefing(routeStops, type, resultBox) {
-        let title = "";
-        let baseBriefing = "";
+function renderTourismBriefing(routeStops, type, resultBox) {
+    let title = "";
+    let baseBriefing = "";
 
-        if (type === 'GrandTour') {
-            title = "Charter: The Grand Tour";
-            baseBriefing = "Our passengers want to experience the full spectrum of galactic economies. Plotting a course through these diverse inhabited locations.";
-        } else if (type === 'Luxury') {
-            title = "Charter: Luxury Resort Circuit";
-            baseBriefing = "A group of wealthy tourists has booked your vessel for a tour of premium destinations and high-end orbital facilities. Keep the ride smooth.";
-        } else if (type === 'Adventure') {
-            title = "Charter: Adventure Safari";
-            baseBriefing = "We have thrill-seekers on board. They want to see the rugged frontier. Take them to these remote outposts and planetary settlements. Danger is part of the package.";
-        } else if (type === 'Beacons') {
-            title = "Charter: Historical Sightseeing";
-            baseBriefing = "Taking passengers on a classic sightseeing run. Navigate to these systems and drop in on the local Tourist Beacons for them to scan the historical data.";
-        } else if (type === 'Anomalies') {
-            title = "Charter: Astrotourism & Anomalies";
-            baseBriefing = "The passengers have commissioned a survey of extreme planetary conditions. Fly out to these specific astronomical bodies for observation.";
+    if (type === 'Mixed') {
+        title = "Charter: The Immersive Galaxy Tour";
+        baseBriefing = "Our passengers are looking for a highly varied experience. We've plotted an eclectic course through luxury orbital resorts, remote planetary outposts, extreme astronomical phenomena, and historic tourist beacons.";
+    } else if (type === 'GrandTour') {
+        title = "Charter: The Grand Tour";
+        baseBriefing = "Our passengers want to experience the full spectrum of galactic economies. Plotting a course through these diverse inhabited locations.";
+    } else if (type === 'Luxury') {
+        title = "Charter: Luxury Resort Circuit";
+        baseBriefing = "A group of wealthy tourists has booked your vessel for a tour of premium destinations and high-end orbital facilities. Keep the ride smooth.";
+    } else if (type === 'Adventure') {
+        title = "Charter: Adventure Safari";
+        baseBriefing = "We have thrill-seekers on board. They want to see the rugged frontier. Take them to these remote outposts and planetary settlements. Danger is part of the package.";
+    } else if (type === 'Beacons') {
+        title = "Charter: Historical Sightseeing";
+        baseBriefing = "Taking passengers on a classic sightseeing run. Navigate to these systems and drop in on the local Tourist Beacons for them to scan the historical data.";
+    } else if (type === 'Anomalies') {
+        title = "Charter: Astrotourism & Anomalies";
+        baseBriefing = "The passengers have commissioned a survey of extreme planetary conditions. Fly out to these specific astronomical bodies for observation.";
+    }
+
+    let html = `
+        <div class="mission-title" style="color: #bd93f9; border-bottom-color: #bd93f9;">${title}</div>
+        <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(189, 147, 249, 0.05); border-left-color: #bd93f9;">"Passenger Manifest Updated. ${baseBriefing}"</div>
+    `;
+
+    routeStops.forEach((stop, index) => {
+        let locInfo = "";
+        if (stop.isBody) {
+            locInfo = `<div class="result-label">Target Body</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #ffb86c; font-weight: normal;">[${stop.anomalyReason}]</span></div>`;
+        } else {
+            locInfo = `<div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal;">[${stop.location.economy || stop.location.type || 'Unknown'}]</span></div>`;
         }
 
-        let html = `
-            <div class="mission-title" style="color: #bd93f9; border-bottom-color: #bd93f9;">${title}</div>
-            <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(189, 147, 249, 0.05); border-left-color: #bd93f9;">"Passenger Manifest Updated. ${baseBriefing}"</div>
-        `;
+        // Show the specific stop type if we are running a Mixed itinerary
+        let stopSubTitle = "";
+        if (type === 'Mixed') {
+             stopSubTitle = `<div style="color: #8be9fd; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">[ ${stop.stopType} Stop ]</div>`;
+        }
 
-        routeStops.forEach((stop, index) => {
-            let locInfo = "";
-            if (stop.isBody) {
-                locInfo = `<div class="result-label">Target Body</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #ffb86c; font-weight: normal;">[${stop.anomalyReason}]</span></div>`;
-            } else {
-                locInfo = `<div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal;">[${stop.location.economy || stop.location.type || 'Unknown'}]</span></div>`;
-            }
-
-            html += `
-            <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: #6272a4; background-color: rgba(98, 114, 164, 0.05);">
-                <div style="color: #bd93f9; font-size: 0.8rem; margin-bottom: 5px; font-weight: bold;">DESTINATION ${index + 1}</div>
-                <div class="result-item">
-                    <div class="result-label">System</div>
-                    <div class="result-value flex-val">${stop.system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${stop.system.distance.toFixed(2)} Ly from start)</span>
-                        <button class="copy-btn" onclick="copyToClipboard('${stop.system.name}', this)" title="Copy System Name">📋</button>
-                    </div>
-                </div>
-                <div class="result-item">${locInfo}</div>
+        html += `
+        <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: #6272a4; background-color: rgba(98, 114, 164, 0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <div style="color: #bd93f9; font-size: 0.8rem; font-weight: bold;">DESTINATION ${index + 1}</div>
+                ${stopSubTitle}
             </div>
-            `;
-        });
+            <div class="result-item">
+                <div class="result-label">System</div>
+                <div class="result-value flex-val">${stop.system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${stop.system.distance.toFixed(2)} Ly from start)</span>
+                    <button class="copy-btn" onclick="copyToClipboard('${stop.system.name}', this)" title="Copy System Name">📋</button>
+                </div>
+            </div>
+            <div class="result-item">${locInfo}</div>
+        </div>
+        `;
+    });
 
-        resultBox.innerHTML = html;
-        resultBox.style.display = 'block';
-    }
+    resultBox.innerHTML = html;
+    resultBox.style.display = 'block';
+}
 </script>
 
 </body>
