@@ -840,8 +840,8 @@
                                     else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05 && isLandable) categoryMatch = 'Orbit';
                                     else if (!usedAnomalies.has('Rotation') && b.rotationalPeriod && Math.abs(b.rotationalPeriod) <= 0.05 && isLandable) categoryMatch = 'Rotation';
                                     else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300 && isLandable) categoryMatch = 'Micro';
-                                    else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
-                                    else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
+                                    else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 1500 && isLandable) categoryMatch = 'Inferno';
+                                    else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30 && isLandable) categoryMatch = 'Freeze';
                                     else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
                                     else if (!usedAnomalies.has('RingedRare') && b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')) categoryMatch = 'RingedRare';
                                 }
@@ -902,7 +902,12 @@
                         if (currentType === 'Beacons') {
                             isValid = (type === "Tourist Beacon");
                         } else if (currentType === 'Luxury') {
-                            isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
+                            // Exclude grimy/restricted economies even if they are in a nice station
+                            const dirtyEcon = ["Refinery", "Industrial", "Extraction", "Military", "Prison Colony", "Colony", "Agriculture"];
+                            const isDirty = dirtyEcon.some(e => econ.includes(e));
+                            
+                            // Must be a Tourism economy OR a luxury station type, AND it cannot be dirty
+                            isValid = (econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus")) && !isDirty;
                         } else if (currentType === 'Adventure') {
                             isValid = st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
                         } else if (currentType === 'GrandTour') {
