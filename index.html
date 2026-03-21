@@ -88,6 +88,7 @@
 
         .form-group {
             margin-bottom: 15px;
+            transition: opacity 0.3s;
         }
 
         label {
@@ -105,6 +106,12 @@
             color: var(--text-main);
             border-radius: 4px;
             box-sizing: border-box;
+        }
+
+        input:disabled {
+            background-color: #010409;
+            color: #555;
+            cursor: not-allowed;
         }
 
         select:focus, input:focus {
@@ -133,7 +140,7 @@
             margin-top: 10px;
         }
 
-        button.submit-btn:hover {
+        button.submit-btn:hover:not(:disabled) {
             background-color: #e07b00;
         }
 
@@ -220,8 +227,8 @@
         }
         
         .cargo-route {
-            background-color: rgba(255, 140, 0, 0.1);
-            border: 1px solid var(--accent);
+            background-color: rgba(255, 140, 0, 0.05);
+            border: 1px solid var(--border);
             padding: 10px;
             margin-top: 15px;
             border-radius: 4px;
@@ -324,18 +331,27 @@
             <input type="text" id="missionSystem" placeholder="Where are you currently docked?" required>
         </div>
 
-        <div class="form-group">
-            <label for="missionRadius">Max Mission Distance (Ly) *</label>
-            <input type="number" id="missionRadius" value="30" min="1" max="80" required>
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label for="missionRadius">Op Radius (Ly) *</label>
+                <input type="number" id="missionRadius" value="30" min="1" max="80" required>
+            </div>
+            <div class="form-group" id="stopsGroup" style="flex: 1;">
+                <label for="missionStops">Route Stops *</label>
+                <input type="number" id="missionStops" value="1" min="1" max="5" required>
+            </div>
         </div>
 
         <div class="form-group">
             <label for="missionType">Activity Preference</label>
             <select id="missionType">
                 <option value="Any">Any Available Activity</option>
-                <option value="Cargo">Cargo Trade Route (Live Market Data)</option>
+                <option value="Cargo">Cargo Trade Route (Single Route Only)</option>
                 <option value="Combat">Combat Patrol / Mercenary</option>
                 <option value="Freelance">Freelance / Board Hopping</option>
+                <option value="Mining">Mining Expedition</option>
+                <option value="Rescue">Search & Rescue</option>
+                <option value="Salvage">Salvage Operations</option>
                 <option value="Surface">Surface Recon / Scavenging</option>
             </select>
         </div>
@@ -348,6 +364,20 @@
 </div>
 
 <script>
+    // Disable stops input if Cargo is selected
+    document.getElementById('missionType').addEventListener('change', function() {
+        const stopsInput = document.getElementById('missionStops');
+        const stopsGroup = document.getElementById('stopsGroup');
+        if (this.value === 'Cargo') {
+            stopsInput.value = 1;
+            stopsInput.disabled = true;
+            stopsGroup.style.opacity = '0.5';
+        } else {
+            stopsInput.disabled = false;
+            stopsGroup.style.opacity = '1';
+        }
+    });
+
     function switchTab(tabId) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
@@ -376,14 +406,11 @@
         });
     }
 
-    // Calculates 3D distance between two systems based on Spansh coords
     function calcDistance(sys1, sys2) {
         const getCoords = (s) => s.coords || { x: s.x, y: s.y, z: s.z };
         const c1 = getCoords(sys1);
         const c2 = getCoords(sys2);
-        
-        if (c1.x === undefined || c2.x === undefined) return 0; // Fallback if coords are missing
-        
+        if (c1.x === undefined || c2.x === undefined) return 0;
         return Math.sqrt(Math.pow(c2.x - c1.x, 2) + Math.pow(c2.y - c1.y, 2) + Math.pow(c2.z - c1.z, 2));
     }
 
@@ -489,11 +516,8 @@
 
                 if (validStations.length > 0) {
                     const loc = validStations[Math.floor(Math.random() * validStations.length)];
-                    
-                    // Extracting additional info
                     const faction = loc.controllingFaction ? loc.controllingFaction.name : 'Unknown';
                     const allegiance = loc.allegiance || 'Independent';
-                    // Grab government from the station, or fallback to the system government
                     const government = loc.government || sys.government || 'Unknown'; 
                     const economy = loc.economy || 'Unknown';
                     const distLs = loc.distanceToArrival ? Math.round(loc.distanceToArrival) + ' ls' : 'Unknown';
@@ -523,41 +547,42 @@
 
     async function handleMissionLogic(searchPool, loader, resultBox) {
         const prefType = document.getElementById('missionType').value;
+        const stopsCount = Math.min(5, Math.max(1, parseInt(document.getElementById('missionStops').value) || 1));
+        
         const archetypes = [
-            { id: 'Freelance', locFilter: 'Orbital' },
-            { id: 'Combat', locFilter: '' },
-            { id: 'Surface', locFilter: 'Planetary' }
+            { id: 'Freelance', locFilter: 'Orbital', econFilter: '' },
+            { id: 'Combat', locFilter: '', econFilter: '' },
+            { id: 'Surface', locFilter: 'Planetary', econFilter: '' },
+            { id: 'Rescue', locFilter: 'Orbital', econFilter: '' },
+            { id: 'Salvage', locFilter: '', econFilter: '' },
+            { id: 'Mining', locFilter: 'Orbital', econFilter: 'Extraction' }
         ];
         
         let selectedType = prefType;
         if (prefType === 'Any') {
-            const allTypes = ['Cargo', 'Freelance', 'Combat', 'Surface'];
+            const allTypes = ['Cargo', 'Freelance', 'Combat', 'Surface', 'Rescue', 'Salvage', 'Mining'];
             selectedType = allTypes[Math.floor(Math.random() * allTypes.length)];
         }
 
-        // CARGO TRADE ROUTE LOGIC
         if (selectedType === 'Cargo') {
+            // CARGO LOGIC (Unchanged, remains a strict 1-stop supply/demand link)
             loader.innerText = `3/3: Searching local markets for profitable trade routes...`;
-            
             for (let i = 0; i < Math.min(searchPool.length, 8); i++) {
                 const sourceSys = searchPool[i];
                 const sourceStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sourceSys.name)}`);
                 const sourceStationsData = await sourceStationsRes.json();
                 
                 if (!sourceStationsData.stations) continue;
-                
                 const validSourceStations = sourceStationsData.stations.filter(s => s.haveMarket && !(s.type || "").includes("Fleet Carrier"));
                 if (validSourceStations.length === 0) continue;
 
                 const sourceStation = validSourceStations[Math.floor(Math.random() * validSourceStations.length)];
-                
                 const marketRes = await fetch(`https://www.edsm.net/api-system-v1/stations/market?systemName=${encodeURIComponent(sourceSys.name)}&stationName=${encodeURIComponent(sourceStation.name)}`);
                 const marketData = await marketRes.json();
 
                 if (marketData.commodities && marketData.commodities.length > 0) {
                     const inStock = marketData.commodities.filter(c => c.stock > 10);
                     if (inStock.length === 0) continue;
-                    
                     const chosenCommodity = inStock[Math.floor(Math.random() * inStock.length)];
 
                     for (let j = i + 1; j < Math.min(searchPool.length, 12); j++) {
@@ -566,7 +591,6 @@
                         const destStationsData = await destStationsRes.json();
                         
                         if (!destStationsData.stations) continue;
-                        
                         const validDestStations = destStationsData.stations.filter(s => s.haveMarket && !(s.type || "").includes("Fleet Carrier"));
                         if (validDestStations.length === 0) continue;
 
@@ -577,7 +601,6 @@
                         if (destMarketData.commodities) {
                             const demandsIt = destMarketData.commodities.find(c => c.id === chosenCommodity.id && c.demand > 0);
                             if (demandsIt) {
-                                // Calculate the true jump distance between the Source and Destination
                                 const routeDistance = calcDistance(sourceSys, destSys);
                                 renderCargoBriefing(sourceSys, sourceStation, destSys, destStation, chosenCommodity, routeDistance, resultBox);
                                 return;
@@ -587,14 +610,19 @@
                     }
                 }
             }
-            throw new Error("Could not find a matching supply/demand route in the current radius. Try increasing the distance or selecting a different mission type.");
+            throw new Error("Could not find a matching supply/demand route in the current radius.");
         } 
-        // STANDARD MISSION LOGIC
         else {
+            // CHAINING LOGIC FOR ALL OTHER TYPES
             const archetype = archetypes.find(a => a.id === selectedType);
-            for (let i = 0; i < Math.min(searchPool.length, 10); i++) {
-                const sys = searchPool[i];
-                loader.innerText = `3/3: Locating target for ${selectedType} contract...`;
+            let routeStops = [];
+            let poolCopy = [...searchPool];
+
+            for (let i = 0; i < poolCopy.length; i++) {
+                if (routeStops.length >= stopsCount) break;
+
+                const sys = poolCopy[i];
+                loader.innerText = `3/3: Locating target for waypoint ${routeStops.length + 1}...`;
                 const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
                 const stationData = await stationRes.json();
 
@@ -602,28 +630,38 @@
                     const validStations = stationData.stations.filter(st => {
                         const type = st.type || "";
                         if (type.includes("Fleet Carrier")) return false;
+                        
                         const isPlan = st.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
                         if (archetype.locFilter === "Orbital" && isPlan) return false;
                         if (archetype.locFilter === "Planetary" && !isPlan) return false;
+                        if (archetype.econFilter && !(st.economy || "").includes(archetype.econFilter)) return false;
+                        
                         return true;
                     });
 
                     if (validStations.length > 0) {
                         const loc = validStations[Math.floor(Math.random() * validStations.length)];
-                        renderStandardBriefing(sys, loc, selectedType, resultBox);
-                        return;
+                        routeStops.push({ system: sys, location: loc });
+                        poolCopy.splice(i, 1); // Remove so we don't visit the same system twice
+                        i--; // Adjust index
                     }
                 }
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise(r => setTimeout(r, 800)); // Rate limit buffer
             }
-            throw new Error(`Could not generate a ${selectedType} contract in this radius. Try widening your search.`);
+
+            if (routeStops.length > 0) {
+                renderStandardBriefing(routeStops, selectedType, resultBox);
+                return;
+            }
+
+            throw new Error(`Could not generate a ${selectedType} contract in this radius. Try widening your search or reducing stops.`);
         }
     }
 
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
         resultBox.innerHTML = `
             <div class="mission-title">Contract: Independent Cargo Run</div>
-            <div class="mission-brief">"Commander, we've identified a profitable supply chain gap. Procure the requested goods from the supplier and haul them to the designated market. Market fluctuations are your only risk."</div>
+            <div class="mission-brief">"Commander, we've identified a profitable supply chain gap. Procure the requested goods from the supplier and haul them to the designated market."</div>
             
             <div class="cargo-route">
                 <div class="result-item"><div class="result-label">Step 1: Buy Commodity</div><div class="result-value">${commodity.name} <span style="color:var(--text-main); font-size:0.9rem; font-weight:normal;">(Approx ${commodity.buyPrice} CR/unit)</span></div></div>
@@ -650,28 +688,52 @@
         `;
         resultBox.style.display = 'block';
     }
-    function renderStandardBriefing(system, location, type, resultBox) {
+
+    function renderStandardBriefing(routeStops, type, resultBox) {
         let title = "";
-        let briefing = "";
+        let baseBriefing = "";
 
         if (type === 'Freelance') {
-            title = "Activity: Freelance Operations";
-            briefing = `Commander, local factions in the <strong>${system.name}</strong> system are seeking independent pilots. Dock at <strong>${location.name}</strong>, check the mission boards for courier runs or light transport jobs, and see where the credits take you.`;
+            title = "Activity: Freelance Tour";
+            baseBriefing = "Check local boards for courier runs or light transport jobs at these consecutive waypoints.";
         } else if (type === 'Combat') {
-            title = "Activity: Combat Patrol";
-            briefing = `Hostile activity reported in <strong>${system.name}</strong>. Use <strong>${location.name}</strong> as a staging ground to repair and rearm. Check their local boards for bounty contracts, or drop into nearby Nav Beacons and Resource Extraction Sites to hunt wanted targets.`;
+            title = "Activity: Combat Patrol Route";
+            baseBriefing = "Hostile activity reported across multiple sectors. Sweep the designated systems, using the stations to repair and rearm.";
         } else if (type === 'Surface') {
-            title = "Activity: Surface Recon & Scavenging";
-            briefing = `Planetary operations recommended in <strong>${system.name}</strong>. Touch down at <strong>${location.name}</strong> to resupply, then deploy your SRV to investigate surface signals, scavenge irregular markers, or gather raw materials in the surrounding area.`;
+            title = "Activity: Planetary Recon Sweep";
+            baseBriefing = "Deploy your SRV at these consecutive planetary locations to scavenge irregular markers and gather raw materials.";
+        } else if (type === 'Rescue') {
+            title = "Activity: Search & Rescue Circuit";
+            baseBriefing = "Distress signals detected. Sweep the nav beacons and USS sites in these systems for escape pods and black boxes. Drop them off at the designated safe harbors.";
+        } else if (type === 'Salvage') {
+            title = "Activity: Deep Space Salvage";
+            baseBriefing = "Reports indicate destroyed convoys in these sectors. Scan for Degraded and Combat Aftermath emissions. Sell off whatever you scrape together at the designated waypoints.";
+        } else if (type === 'Mining') {
+            title = "Activity: Mining Expedition";
+            baseBriefing = "Prospect the rings in these resource-rich systems. The designated extraction outposts are prime spots to sell your haul or refuel your limpets.";
         }
 
-        resultBox.innerHTML = `
+        let html = `
             <div class="mission-title">${title}</div>
-            <div class="mission-brief">"${briefing}"</div>
-            <div class="result-item"><div class="result-label">Target System</div><div class="result-value">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${system.distance.toFixed(2)} Ly)</span></div></div>
-            <div class="result-item"><div class="result-label">Staging Location</div><div class="result-value">${location.name}</div></div>
-            <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${location.type || 'Unknown'}</div></div>
+            <div class="mission-brief">"Commander. ${baseBriefing}"</div>
         `;
+
+        routeStops.forEach((stop, index) => {
+            html += `
+            <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''}; border-color: var(--border);">
+                <div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; font-weight: bold;">WAYPOINT ${index + 1}</div>
+                <div class="result-item">
+                    <div class="result-label">Target System</div>
+                    <div class="result-value flex-val">${stop.system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${stop.system.distance.toFixed(2)} Ly from start)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${stop.system.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item"><div class="result-label">Staging Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(${stop.location.type || 'Unknown'})</span></div></div>
+            </div>
+            `;
+        });
+
+        resultBox.innerHTML = html;
         resultBox.style.display = 'block';
     }
 </script>
