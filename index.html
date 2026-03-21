@@ -1462,53 +1462,60 @@
         currentNarrativeData = [];
         let poolCopy = [...searchPool];
         loader.innerText = `3/3: Drafting Operational Directives...`;
-        
-        let globalPhaseIndex = 0;
 
+        // --- NEW REPLACEMENT LOOP ---
         for(let c = 0; c < lengthCount; c++) {
-            if(poolCopy.length === 0) break;
+            // We need 2 systems per chapter to fill sys1, loc1, sys2, loc2
+            if(poolCopy.length < 2) break; 
             
             let chapterSteps = [];
             
-            for(let p = 0; p < phasesPerChapter; p++) {
-                if(poolCopy.length === 0) break;
-                
-                const phaseFunc = selectedArc.chapters[globalPhaseIndex % selectedArc.chapters.length];
-                globalPhaseIndex++;
-                
-                let targetSys = poolCopy.pop();
-                
-                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(targetSys.name)}`);
-                const stationData = await stationRes.json();
-                let targetLoc = "Deep Space Signal";
-                
-                if(stationData.stations && stationData.stations.length > 0) {
-                    const valid = stationData.stations.filter(s => !(s.type || "").includes("Fleet Carrier"));
-                    if(valid.length > 0) targetLoc = valid[Math.floor(Math.random() * valid.length)].name;
-                }
-
-                // Check if we need to switch ships
-                const canDoWithCurrent = selectedArc.reqShip.includes(activeShip);
-                if(!canDoWithCurrent) {
-                    const newShipType = selectedArc.reqShip.find(s => availableFleet.includes(s));
-                    const switchLocation = homeBase ? `<strong>${homeBase}</strong>` : "your base of operations";
-                    
-                    let shipName = newShipType;
-                    const classNames = {
-                        'Multi': 'Multi-Role', 'CombatLight': 'Light/Fast Combat', 'CombatHeavy': 'Heavy Combat',
-                        'TransportLight': 'Light/Medium Transport', 'TransportHeavy': 'Heavy Freighter',
-                        'Smuggler': 'Covert/Blockade Runner', 'Explorer': 'Deep Space Explorer',
-                        'Rescue': 'Rescue/Salvage', 'Passenger': 'Passenger/Tourism', 'Industrial': 'Industrial/Mining'
-                    };
-                    if(classNames[newShipType]) shipName = classNames[newShipType];
-                    
-                    chapterSteps.push(`[FLEET REASSIGNMENT] Return to ${switchLocation} and transfer to your <strong>${shipName}</strong> vessel.`);
-                    activeShip = newShipType; // Update state
-                }
-                
-                // Generate the procedural steps
-                chapterSteps = chapterSteps.concat(phaseFunc(targetSys.name, targetLoc));
+            // Get the specific chapter text template
+            const chapterFunc = selectedArc.chapters[c % selectedArc.chapters.length];
+            
+            // Fetch System & Location 1
+            let sys1 = poolCopy.pop();
+            const stationRes1 = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys1.name)}`);
+            const stationData1 = await stationRes1.json();
+            let loc1 = "Deep Space Signal";
+            
+            if(stationData1.stations && stationData1.stations.length > 0) {
+                const valid1 = stationData1.stations.filter(s => !(s.type || "").includes("Fleet Carrier"));
+                if(valid1.length > 0) loc1 = valid1[Math.floor(Math.random() * valid1.length)].name;
             }
+
+            // Fetch System & Location 2
+            let sys2 = poolCopy.pop();
+            const stationRes2 = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys2.name)}`);
+            const stationData2 = await stationRes2.json();
+            let loc2 = "Deep Space Signal";
+            
+            if(stationData2.stations && stationData2.stations.length > 0) {
+                const valid2 = stationData2.stations.filter(s => !(s.type || "").includes("Fleet Carrier"));
+                if(valid2.length > 0) loc2 = valid2[Math.floor(Math.random() * valid2.length)].name;
+            }
+
+            // Check if we need to switch ships
+            const canDoWithCurrent = selectedArc.reqShip.includes(activeShip);
+            if(!canDoWithCurrent) {
+                const newShipType = selectedArc.reqShip.find(s => availableFleet.includes(s));
+                const switchLocation = homeBase ? `<strong>${homeBase}</strong>` : "your base of operations";
+                
+                let shipName = newShipType;
+                const classNames = {
+                    'Multi': 'Multi-Role', 'CombatLight': 'Light/Fast Combat', 'CombatHeavy': 'Heavy Combat',
+                    'TransportLight': 'Light/Medium Transport', 'TransportHeavy': 'Heavy Freighter',
+                    'Smuggler': 'Covert/Blockade Runner', 'Explorer': 'Deep Space Explorer',
+                    'Rescue': 'Rescue/Salvage', 'Passenger': 'Passenger/Tourism', 'Industrial': 'Industrial/Mining'
+                };
+                if(classNames[newShipType]) shipName = classNames[newShipType];
+                
+                chapterSteps.push(`[FLEET REASSIGNMENT] Return to ${switchLocation} and transfer to your <strong>${shipName}</strong> vessel.`);
+                activeShip = newShipType; // Update state
+            }
+            
+            // Generate the procedural steps, passing ALL 4 variables
+            chapterSteps = chapterSteps.concat(chapterFunc(sys1.name, loc1, sys2.name, loc2));
 
             // If it's the final chapter, add a conclusion step
             if(c === lengthCount - 1) {
@@ -1526,7 +1533,7 @@
             }
         }
 
-        if(currentNarrativeData.length === 0) throw new Error("Could not find suitable systems for a campaign.");
+        if(currentNarrativeData.length === 0) throw new Error("Could not find enough suitable systems to complete a campaign.");
 
         currentChapterIndex = 0;
         renderNarrativeUI(resultBox);
