@@ -994,7 +994,8 @@
             throw new Error("Please select at least one Tour Package type.");
         }
 
-        const stopsCount = Math.min(5, Math.max(2, parseInt(document.getElementById('tourismStops').value) || 3));
+        // FIX 1: Changed Math.max(2) to Math.max(1) so it respects a 1-stop input
+        const stopsCount = Math.min(5, Math.max(1, parseInt(document.getElementById('tourismStops').value) || 3));
         const allowExpand = document.getElementById('tourismExpand').checked;
         
         let currentRadius = initialRadius;
@@ -1019,133 +1020,146 @@
 
             for (let i = 0; i < poolCopy.length; i++) {
                 const sys = poolCopy[i];
-                let currentType = selectedTypes[Math.floor(Math.random() * selectedTypes.length)];
                 const legDist = calcDistance(currentReferenceSystem, sys); 
         
-                if (currentType === 'Anomalies') {
-                    loader.innerText = `3/3: Scanning ${sys.name} for anomalies (Waypoint ${step + 1})...`;
-                    try {
-                        const bodyRes = await fetch(`https://www.edsm.net/api-system-v1/bodies?systemName=${encodeURIComponent(sys.name)}`);
-                        const bodyData = await bodyRes.json();
-                        
-                        if (bodyData.bodies && bodyData.bodies.length > 0) {
-                            const anomalies = bodyData.bodies.filter(b => {
-                                const isStar = b.type === 'Star';
-                                const isPlanet = b.type === 'Planet';
-                                const isLandable = b.isLandable === true;
-                                let categoryMatch = null;
-                                
-                                if (isStar && !usedAnomalies.has('RareStar')) {
-                                    if (b.subType === 'Black Hole' || b.subType === 'Neutron Star' || b.subType === 'Wolf-Rayet Star') categoryMatch = 'RareStar';
-                                }
-                                
-                                if (isPlanet) {
-                                    if (!usedAnomalies.has('Gravity') && b.gravity && b.gravity >= 5.0 && isLandable) categoryMatch = 'Gravity';
-                                    else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05 && isLandable) categoryMatch = 'Orbit';
-                                    else if (!usedAnomalies.has('Rotation') && b.rotationalPeriod && Math.abs(b.rotationalPeriod) <= 0.05 && isLandable) categoryMatch = 'Rotation';
-                                    else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300 && isLandable) categoryMatch = 'Micro';
-                                    else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
-                                    else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
-                                    else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
-                                    else if (!usedAnomalies.has('RingedRare') && b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')) categoryMatch = 'RingedRare';
-                                }
+                // FIX 2: Shuffle types and test ALL of them against the system before discarding it
+                let typesToTry = shuffleArray([...selectedTypes]);
+                let stationDataCache = null; // Cache to prevent hitting the API 4 times for the same system
+                let systemMatched = false;
 
-                                if (categoryMatch) {
-                                    b.matchedCategory = categoryMatch; 
-                                    return true;
-                                }
-                                return false;
-                            });
-        
-                            if (anomalies.length > 0) {
-                                const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
-                                let reason = "Interesting Astronomical POI";
-                                
-                                if (loc.matchedCategory === 'RareStar') reason = `Rare Stellar Body (${loc.subType})`;
-                                else if (loc.matchedCategory === 'Gravity') reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
-                                else if (loc.matchedCategory === 'Orbit') reason = `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
-                                else if (loc.matchedCategory === 'Rotation') reason = `Fast Day/Night (${(Math.abs(loc.rotationalPeriod) * 24).toFixed(1)} hrs)`;
-                                else if (loc.matchedCategory === 'Inferno') reason = `Inferno World (${loc.surfaceTemperature}K)`;
-                                else if (loc.matchedCategory === 'Freeze') reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
-                                else if (loc.matchedCategory === 'Eccentric') reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
-                                else if (loc.matchedCategory === 'Micro') reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
-                                else if (loc.matchedCategory === 'RingedRare') reason = `Ringed Rare World (${loc.subType})`;
-        
-                                usedAnomalies.add(loc.matchedCategory);
-                                routeStops.push({ 
-                                    system: sys, location: loc, anomalyReason: reason, isBody: true, 
-                                    stopType: currentType, legDistance: legDist, isExpanded: isExpandedSearch 
+                for (let currentType of typesToTry) {
+                    if (currentType === 'Anomalies') {
+                        loader.innerText = `3/3: Scanning ${sys.name} for anomalies (Waypoint ${step + 1})...`;
+                        try {
+                            const bodyRes = await fetch(`https://www.edsm.net/api-system-v1/bodies?systemName=${encodeURIComponent(sys.name)}`);
+                            const bodyData = await bodyRes.json();
+                            
+                            if (bodyData.bodies && bodyData.bodies.length > 0) {
+                                const anomalies = bodyData.bodies.filter(b => {
+                                    const isStar = b.type === 'Star';
+                                    const isPlanet = b.type === 'Planet';
+                                    const isLandable = b.isLandable === true;
+                                    let categoryMatch = null;
+                                    
+                                    if (isStar && !usedAnomalies.has('RareStar')) {
+                                        if (b.subType === 'Black Hole' || b.subType === 'Neutron Star' || b.subType === 'Wolf-Rayet Star') categoryMatch = 'RareStar';
+                                    }
+                                    
+                                    if (isPlanet) {
+                                        if (!usedAnomalies.has('Gravity') && b.gravity && b.gravity >= 5.0 && isLandable) categoryMatch = 'Gravity';
+                                        else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05 && isLandable) categoryMatch = 'Orbit';
+                                        else if (!usedAnomalies.has('Rotation') && b.rotationalPeriod && Math.abs(b.rotationalPeriod) <= 0.05 && isLandable) categoryMatch = 'Rotation';
+                                        else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300 && isLandable) categoryMatch = 'Micro';
+                                        else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
+                                        else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
+                                        else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
+                                        else if (!usedAnomalies.has('RingedRare') && b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')) categoryMatch = 'RingedRare';
+                                    }
+
+                                    if (categoryMatch) {
+                                        b.matchedCategory = categoryMatch; 
+                                        return true;
+                                    }
+                                    return false;
                                 });
-                                poolCopy.splice(i, 1);
-                                foundStop = true;
-                                currentReferenceSystem = sys;
-                                isExpandedSearch = false; 
-                                expandAttempts = 0; 
-                                break;
+            
+                                if (anomalies.length > 0) {
+                                    const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
+                                    let reason = "Interesting Astronomical POI";
+                                    
+                                    if (loc.matchedCategory === 'RareStar') reason = `Rare Stellar Body (${loc.subType})`;
+                                    else if (loc.matchedCategory === 'Gravity') reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
+                                    else if (loc.matchedCategory === 'Orbit') reason = `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
+                                    else if (loc.matchedCategory === 'Rotation') reason = `Fast Day/Night (${(Math.abs(loc.rotationalPeriod) * 24).toFixed(1)} hrs)`;
+                                    else if (loc.matchedCategory === 'Inferno') reason = `Inferno World (${loc.surfaceTemperature}K)`;
+                                    else if (loc.matchedCategory === 'Freeze') reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
+                                    else if (loc.matchedCategory === 'Eccentric') reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
+                                    else if (loc.matchedCategory === 'Micro') reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
+                                    else if (loc.matchedCategory === 'RingedRare') reason = `Ringed Rare World (${loc.subType})`;
+            
+                                    usedAnomalies.add(loc.matchedCategory);
+                                    routeStops.push({ 
+                                        system: sys, location: loc, anomalyReason: reason, isBody: true, 
+                                        stopType: currentType, legDistance: legDist, isExpanded: isExpandedSearch 
+                                    });
+                                    systemMatched = true;
+                                    break; // Break types loop since we found a stop for this system
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Body fetch error", e);
+                        }
+                    } else {
+                        // All other types require Station Data. Fetch once per system via cache.
+                        if (!stationDataCache) {
+                            loader.innerText = `3/3: Booking itinerary for waypoint ${step + 1} (${sys.name})...`;
+                            try {
+                                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+                                stationDataCache = await stationRes.json();
+                            } catch (e) {
+                                stationDataCache = { stations: [] };
                             }
                         }
-                    } catch (e) {
-                        console.error("Body fetch error", e);
-                    }
-                    await new Promise(r => setTimeout(r, 800));
-                    continue;
-                }
-        
-                loader.innerText = `3/3: Booking itinerary for waypoint ${step + 1} (${sys.name})...`;
-                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
-                const stationData = await stationRes.json();
-        
-                if (stationData.stations) {
-                    const validStations = stationData.stations.filter(st => {
-                        const type = st.type || "Unknown";
-                        const econ = st.economy || "Unknown";
-                        if (type.includes("Fleet Carrier")) return false;
-                        
-                        let isValid = false;
+            
+                        if (stationDataCache.stations) {
+                            const validStations = stationDataCache.stations.filter(st => {
+                                const type = st.type || "Unknown";
+                                const econ = st.economy || "Unknown";
+                                if (type.includes("Fleet Carrier")) return false;
+                                
+                                let isValid = false;
 
-                        if (currentType === 'Beacons') {
-                            isValid = (type === "Tourist Beacon");
-                        } else if (currentType === 'Luxury') {
-                            isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
-                        } else if (currentType === 'Adventure') {
-                            isValid = st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
-                        } else if (currentType === 'GrandTour') {
-                            isValid = (econ && econ !== "None" && econ !== "Unknown");
-                            if (isValid && usedGrandTourEconomies.has(econ)) return false; 
+                                if (currentType === 'Beacons') {
+                                    isValid = (type === "Tourist Beacon");
+                                } else if (currentType === 'Luxury') {
+                                    isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
+                                } else if (currentType === 'Adventure') {
+                                    isValid = st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
+                                } else if (currentType === 'GrandTour') {
+                                    isValid = (econ && econ !== "None" && econ !== "Unknown");
+                                    if (isValid && usedGrandTourEconomies.has(econ)) return false; 
+                                }
+                
+                                if (!isValid) return false;
+
+                                if (currentType !== 'Beacons') {
+                                    const profile = `${type}-${econ}`; 
+                                    if (usedStationProfiles.has(profile)) return false;
+                                    
+                                    st.profileTag = profile;
+                                    if (currentType === 'GrandTour') st.econTag = econ;
+                                }
+
+                                return true;
+                            });
+            
+                            if (validStations.length > 0) {
+                                const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                                
+                                if (loc.profileTag) usedStationProfiles.add(loc.profileTag);
+                                if (loc.econTag) usedGrandTourEconomies.add(loc.econTag);
+
+                                routeStops.push({ 
+                                    system: sys, location: loc, stopType: currentType, legDistance: legDist, 
+                                    isExpanded: isExpandedSearch 
+                                });
+                                systemMatched = true;
+                                break; // Break types loop since we found a stop for this system
+                            }
                         }
-        
-                        if (!isValid) return false;
-
-                        if (currentType !== 'Beacons') {
-                            const profile = `${type}-${econ}`; 
-                            if (usedStationProfiles.has(profile)) return false;
-                            
-                            st.profileTag = profile;
-                            if (currentType === 'GrandTour') st.econTag = econ;
-                        }
-
-                        return true;
-                    });
-        
-                    if (validStations.length > 0) {
-                        const loc = validStations[Math.floor(Math.random() * validStations.length)];
-                        
-                        if (loc.profileTag) usedStationProfiles.add(loc.profileTag);
-                        if (loc.econTag) usedGrandTourEconomies.add(loc.econTag);
-
-                        routeStops.push({ 
-                            system: sys, location: loc, stopType: currentType, legDistance: legDist, 
-                            isExpanded: isExpandedSearch 
-                        });
-                        poolCopy.splice(i, 1);
-                        foundStop = true;
-                        currentReferenceSystem = sys; 
-                        isExpandedSearch = false; 
-                        expandAttempts = 0; 
-                        break; 
                     }
                 }
-                await new Promise(r => setTimeout(r, 800)); 
+
+                if (systemMatched) {
+                    poolCopy.splice(i, 1);
+                    foundStop = true;
+                    currentReferenceSystem = sys; 
+                    isExpandedSearch = false; 
+                    expandAttempts = 0; 
+                    break; // Break the system loop and move to the next step
+                }
+
+                await new Promise(r => setTimeout(r, 600)); // Slightly reduced timeout due to better caching
             }
 
             if (!foundStop) {
