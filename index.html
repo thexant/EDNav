@@ -253,8 +253,6 @@
             </select>
         </div>
         <button class="submit-btn" id="searchBtn" onclick="findRandomLocation()">Find Location</button>
-
-        <button class="submit-btn" id="searchBtn" onclick="findRandomLocation()">Find Location</button>
         
         <div id="loader" class="loader">Querying EDSM Database... this might take a moment.</div>
 
@@ -329,7 +327,7 @@
                 }
             };
 
-            const spanshRes = await fetch("https://spansh.co.uk/api/systems/search", {
+            const spanshRes = await fetch("https://www.spansh.co.uk/api/systems/search", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(spanshPayload)
@@ -351,7 +349,7 @@
                 while (attempts < 15) {
                     await new Promise(r => setTimeout(r, 1000));
                     loader.innerText = `2/3: Waiting for Spansh job queue... (Attempt ${attempts + 1})`;
-                    const pollRes = await fetch(`https://spansh.co.uk/api/results/${spanshData.reference}`);
+                    const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
                     
                     // NEW: Catch polling rate limit
                     if (pollRes.status === 429) {
