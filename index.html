@@ -327,11 +327,11 @@
                 }
             };
 
-            const spanshRes = await fetch("https://www.spansh.co.uk/api/systems/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(spanshPayload)
-            });
+			const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
+			    method: "POST",
+			    headers: { "Content-Type": "application/json" },
+			    body: JSON.stringify(spanshPayload)
+			});
 
             // NEW: Catch Spansh Rate Limiting
             if (spanshRes.status === 429) {
