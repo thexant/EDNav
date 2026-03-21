@@ -792,7 +792,7 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
         let routeStops = [];
         let poolCopy = [...searchPool];
         let usedEconomies = new Set();
-        
+        let usedAnomalies = new Set();
         // Start the route at the origin system
         let currentReferenceSystem = originCoordData; 
     
@@ -819,23 +819,29 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
                             const anomalies = bodyData.bodies.filter(b => {
                                 const isStar = b.type === 'Star';
                                 const isPlanet = b.type === 'Planet';
+                                let categoryMatch = null;
                                 
                                 // 1. Rare Star Types
-                                if (isStar) {
-                                    return b.subType === 'Black Hole' || 
-                                           b.subType === 'Neutron Star' || 
-                                           b.subType === 'Wolf-Rayet Star';
+                                if (isStar && !usedAnomalies.has('RareStar')) {
+                                    if (b.subType === 'Black Hole' || b.subType === 'Neutron Star' || b.subType === 'Wolf-Rayet Star') {
+                                        categoryMatch = 'RareStar';
+                                    }
                                 }
                                 
                                 // 2. Extreme Planetary Conditions
                                 if (isPlanet) {
-                                    return (b.gravity && b.gravity >= 3.5) || // Crushing Gravity
-                                           (b.orbitalPeriod && b.orbitalPeriod <= 0.05) || // Whip Orbits (< 1.2 hours)
-                                           (b.surfaceTemperature && b.surfaceTemperature >= 2500) || // Inferno
-                                           (b.surfaceTemperature && b.surfaceTemperature <= 30) || // Deep Freeze
-                                           (b.eccentricity && b.eccentricity >= 0.9) || // Highly Elliptical
-                                           (b.radius && b.radius <= 300) || // Micro-planets
-                                           (b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')); // Rare Ringed Worlds
+                                    if (!usedAnomalies.has('Gravity') && b.gravity && b.gravity >= 5.0) categoryMatch = 'Gravity';
+                                    else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05) categoryMatch = 'Orbit';
+                                    else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
+                                    else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
+                                    else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
+                                    else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300) categoryMatch = 'Micro';
+                                    else if (!usedAnomalies.has('RingedRare') && b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')) categoryMatch = 'RingedRare';
+                                }
+
+                                if (categoryMatch) {
+                                    b.matchedCategory = categoryMatch; // Tag the body with its category
+                                    return true;
                                 }
                                 return false;
                             });
@@ -844,32 +850,32 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
                                 const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
                                 let reason = "Interesting Astronomical POI";
                                 
-                                if (loc.type === 'Star') {
+                                if (loc.matchedCategory === 'RareStar') {
                                     reason = `Rare Stellar Body (${loc.subType})`;
-                                } else {
-                                    if (loc.gravity >= 3.5) {
-                                        reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
-                                    } else if (loc.orbitalPeriod <= 0.05) {
-                                        // Format the orbit into minutes or hours for easier reading
-                                        const orbitMins = loc.orbitalPeriod * 1440;
-                                        reason = orbitMins < 60 ? `Whip Orbit (${orbitMins.toFixed(0)} mins)` : `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
-                                    } else if (loc.surfaceTemperature >= 2500) {
-                                        reason = `Inferno World (${loc.surfaceTemperature}K)`;
-                                    } else if (loc.surfaceTemperature <= 30) {
-                                        reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
-                                    } else if (loc.eccentricity >= 0.9) {
-                                        reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
-                                    } else if (loc.radius <= 300) {
-                                        reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
-                                    } else if (loc.rings && loc.rings.length > 0) {
-                                        reason = `Ringed Rare World (${loc.subType})`;
-                                    }
+                                } else if (loc.matchedCategory === 'Gravity') {
+                                    reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
+                                } else if (loc.matchedCategory === 'Orbit') {
+                                    const orbitMins = loc.orbitalPeriod * 1440;
+                                    reason = orbitMins < 60 ? `Whip Orbit (${orbitMins.toFixed(0)} mins)` : `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
+                                } else if (loc.matchedCategory === 'Inferno') {
+                                    reason = `Inferno World (${loc.surfaceTemperature}K)`;
+                                } else if (loc.matchedCategory === 'Freeze') {
+                                    reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
+                                } else if (loc.matchedCategory === 'Eccentric') {
+                                    reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
+                                } else if (loc.matchedCategory === 'Micro') {
+                                    reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
+                                } else if (loc.matchedCategory === 'RingedRare') {
+                                    reason = `Ringed Rare World (${loc.subType})`;
                                 }
         
+                                // Mark this anomaly type as used for this itinerary
+                                usedAnomalies.add(loc.matchedCategory);
+
                                 routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true, stopType: currentType, legDistance: legDist });
                                 poolCopy.splice(i, 1);
                                 foundStop = true;
-                                currentReferenceSystem = sys; // Update reference for the next step
+                                currentReferenceSystem = sys;
                                 break;
                             }
                         }
