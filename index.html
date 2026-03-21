@@ -245,7 +245,7 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('random')">Random Location</button>
         <button class="tab" onclick="switchTab('mission')">Mission Board</button>
-        <button class="tab" onclick="switchTab('tourism')">VIP Tourism</button>
+        <button class="tab" onclick="switchTab('tourism')">Tourism</button>
     </div>
 
     <div id="mode-random" class="mode-content active">
@@ -365,11 +365,11 @@
     </div>
 
     <div id="mode-tourism" class="mode-content">
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Arrange exclusive itineraries for high-paying VIP passengers.</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Plan sightseeing routes to famous tourist destinations and interesting astronomical anomalies.</p>
         
         <div class="form-group">
             <label for="tourismSystem">Current System *</label>
-            <input type="text" id="tourismSystem" placeholder="Where is the VIP boarding?" required>
+            <input type="text" id="tourismSystem" placeholder="Where is the tour starting?" required>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -386,6 +386,8 @@
         <div class="form-group">
             <label for="tourismType">Tour Package</label>
             <select id="tourismType">
+                <option value="Beacons">Historical Sightseeing (Tourist Beacons)</option>
+                <option value="Anomalies">Astrotourism (High-G, Fast Orbits, Extreme Temps)</option>
                 <option value="GrandTour">The Grand Tour (Diverse Economies)</option>
                 <option value="Luxury">Luxury Resorts (Tourism Stations & Wealthy Ports)</option>
                 <option value="Adventure">Adventure Safari (Planetary & Outposts)</option>
@@ -400,7 +402,6 @@
 </div>
 
 <script>
-    // Disable stops input if Cargo or Smuggling is selected
     document.getElementById('missionType').addEventListener('change', function() {
         const stopsInput = document.getElementById('missionStops');
         const stopsGroup = document.getElementById('stopsGroup');
@@ -673,7 +674,6 @@
                 
                 if (!sourceStationsData.stations) continue;
                 
-                // Seek Anarchy/Dictatorship systems, or shady outposts for flavor
                 const validSourceStations = sourceStationsData.stations.filter(s => {
                     if ((s.type || "").includes("Fleet Carrier")) return false;
                     const gov = s.government || sourceSys.government || "";
@@ -691,7 +691,6 @@
                     
                     if (!destStationsData.stations) continue;
                     
-                    // Destination must have a Black Market according to EDSM's services list
                     const validDestStations = destStationsData.stations.filter(s => {
                         if ((s.type || "").includes("Fleet Carrier")) return false;
                         return s.otherServices && s.otherServices.includes("Black Market");
@@ -708,7 +707,6 @@
             }
             throw new Error("Could not plot a covert route. Ensure your radius includes Anarchy systems and Black Markets.");
         } else {
-            // CHAINING LOGIC FOR ALL OTHER TYPES
             const archetype = archetypes.find(a => a.id === selectedType);
             let routeStops = [];
             let poolCopy = [...searchPool];
@@ -765,6 +763,44 @@
             if (routeStops.length >= stopsCount) break;
 
             const sys = poolCopy[i];
+
+            // UNIQUE LOGIC FOR ASTRO-ANOMALIES (QUERIES BODIES API INSTEAD OF STATIONS)
+            if (tourType === 'Anomalies') {
+                loader.innerText = `3/3: Scanning ${sys.name} for astronomical anomalies (Waypoint ${routeStops.length + 1})...`;
+                try {
+                    const bodyRes = await fetch(`https://www.edsm.net/api-system-v1/bodies?systemName=${encodeURIComponent(sys.name)}`);
+                    const bodyData = await bodyRes.json();
+                    
+                    if (bodyData.bodies && bodyData.bodies.length > 0) {
+                        const anomalies = bodyData.bodies.filter(b => {
+                            if (b.type === 'Star') return false; 
+                            return (b.gravity && b.gravity > 2.5) || 
+                                   (b.orbitalPeriod && b.orbitalPeriod < 1.0) || 
+                                   (b.surfaceTemperature && b.surfaceTemperature > 1500) ||
+                                   (b.surfaceTemperature && b.surfaceTemperature < 30);
+                        });
+
+                        if (anomalies.length > 0) {
+                            const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
+                            let reason = "Interesting Astronomical POI";
+                            if (loc.gravity > 2.5) reason = `High Gravity (${loc.gravity.toFixed(2)}G)`;
+                            else if (loc.orbitalPeriod < 1.0) reason = `Fast Orbit (${loc.orbitalPeriod.toFixed(2)} days)`;
+                            else if (loc.surfaceTemperature > 1500) reason = `Scorching Planet (${loc.surfaceTemperature}K)`;
+                            else if (loc.surfaceTemperature < 30) reason = `Deep Freeze (${loc.surfaceTemperature}K)`;
+
+                            routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true });
+                            poolCopy.splice(i, 1);
+                            i--;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Body fetch error", e);
+                }
+                await new Promise(r => setTimeout(r, 800));
+                continue;
+            }
+
+            // STANDARD STATION LOGIC FOR ALL OTHER TOURISM TYPES
             loader.innerText = `3/3: Booking itinerary for waypoint ${routeStops.length + 1}...`;
             const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
             const stationData = await stationRes.json();
@@ -775,14 +811,13 @@
                     const econ = st.economy || "";
                     if (type.includes("Fleet Carrier")) return false;
                     
-                    if (tourType === 'Luxury') {
-                        // Strict Tourism or wealthy/luxury station geometries
+                    if (tourType === 'Beacons') {
+                        return type.includes("Beacon") || (st.name && st.name.includes("Beacon"));
+                    } else if (tourType === 'Luxury') {
                         return econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
                     } else if (tourType === 'Adventure') {
-                        // Planetary or outposts only for that rugged feel
                         return st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
                     } else if (tourType === 'GrandTour') {
-                        // Diverse economies constraint
                         if (!econ || econ === "None") return false;
                         if (usedEconomies.has(econ)) return false; 
                         return true;
@@ -806,7 +841,7 @@
             return;
         }
 
-        throw new Error(`Could not construct a ${tourType} itinerary with ${stopsCount} stops. Try increasing the radius or lowering stops.`);
+        throw new Error(`Could not construct a ${tourType} itinerary with ${stopsCount} stops. Try increasing the radius.`);
     }
 
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
@@ -925,14 +960,20 @@
 
         if (type === 'GrandTour') {
             title = "Charter: The Grand Tour";
-            baseBriefing = "Our client is a wealthy eccentric wanting to experience the full spectrum of galactic economies. Ensure their comfort as we jump between these diverse locations.";
+            baseBriefing = "Our passengers want to experience the full spectrum of galactic economies. Plotting a course through these diverse inhabited locations.";
         } else if (type === 'Luxury') {
             title = "Charter: Luxury Resort Circuit";
-            baseBriefing = "A high-net-worth VIP has chartered your vessel for a tour of premium tourist destinations and high-end orbital facilities. Keep the ride smooth and avoid interdictions.";
+            baseBriefing = "A group of wealthy tourists has booked your vessel for a tour of premium destinations and high-end orbital facilities. Keep the ride smooth.";
         } else if (type === 'Adventure') {
             title = "Charter: Adventure Safari";
             baseBriefing = "We have thrill-seekers on board. They want to see the rugged frontier. Take them to these remote outposts and planetary settlements. Danger is part of the package.";
-        } 
+        } else if (type === 'Beacons') {
+            title = "Charter: Historical Sightseeing";
+            baseBriefing = "Taking passengers on a classic sightseeing run. Navigate to these systems and drop in on the local Tourist Beacons for them to scan the historical data.";
+        } else if (type === 'Anomalies') {
+            title = "Charter: Astrotourism & Anomalies";
+            baseBriefing = "The passengers have commissioned a survey of extreme planetary conditions. Fly out to these specific astronomical bodies for observation.";
+        }
 
         let html = `
             <div class="mission-title" style="color: #bd93f9; border-bottom-color: #bd93f9;">${title}</div>
@@ -940,6 +981,13 @@
         `;
 
         routeStops.forEach((stop, index) => {
+            let locInfo = "";
+            if (stop.isBody) {
+                locInfo = `<div class="result-label">Target Body</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #ffb86c; font-weight: normal;">[${stop.anomalyReason}]</span></div>`;
+            } else {
+                locInfo = `<div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal;">[${stop.location.economy || stop.location.type || 'Unknown'}]</span></div>`;
+            }
+
             html += `
             <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: #6272a4; background-color: rgba(98, 114, 164, 0.05);">
                 <div style="color: #bd93f9; font-size: 0.8rem; margin-bottom: 5px; font-weight: bold;">DESTINATION ${index + 1}</div>
@@ -949,7 +997,7 @@
                         <button class="copy-btn" onclick="copyToClipboard('${stop.system.name}', this)" title="Copy System Name">📋</button>
                     </div>
                 </div>
-                <div class="result-item"><div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal;">[${stop.location.economy || 'Unknown'} Economy]</span></div></div>
+                <div class="result-item">${locInfo}</div>
             </div>
             `;
         });
