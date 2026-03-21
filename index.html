@@ -168,6 +168,29 @@
             color: var(--accent);
         }
 
+        .flex-val {
+            display: flex;
+            align-items: center;
+        }
+
+        .copy-btn {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            color: var(--text-main);
+            border-color: var(--accent);
+            background-color: rgba(255, 140, 0, 0.1);
+        }
+
         .loader {
             text-align: center;
             color: var(--text-muted);
@@ -317,6 +340,29 @@
         return array;
     }
 
+    function copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = btn.innerText;
+            btn.innerText = '✅';
+            btn.style.color = '#50fa7b';
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.color = 'var(--text-muted)';
+            }, 1500);
+        });
+    }
+
+    // Calculates 3D distance between two systems based on Spansh coords
+    function calcDistance(sys1, sys2) {
+        const getCoords = (s) => s.coords || { x: s.x, y: s.y, z: s.z };
+        const c1 = getCoords(sys1);
+        const c2 = getCoords(sys2);
+        
+        if (c1.x === undefined || c2.x === undefined) return 0; // Fallback if coords are missing
+        
+        return Math.sqrt(Math.pow(c2.x - c1.x, 2) + Math.pow(c2.y - c1.y, 2) + Math.pow(c2.z - c1.z, 2));
+    }
+
     async function executeSearch(mode) {
         const isMission = mode === 'mission';
         const systemInput = document.getElementById(isMission ? 'missionSystem' : 'systemName').value.trim();
@@ -417,10 +463,25 @@
 
                 if (validStations.length > 0) {
                     const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                    
+                    // Extracting additional info
+                    const faction = loc.controllingFaction ? loc.controllingFaction.name : 'Unknown';
+                    const allegiance = loc.allegiance || 'Independent';
+                    const economy = loc.economy || 'Unknown';
+                    const distLs = loc.distanceToArrival ? Math.round(loc.distanceToArrival) + ' ls' : 'Unknown';
+
                     resultBox.innerHTML = `
-                        <div class="result-item"><div class="result-label">System</div><div class="result-value">${sys.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${sys.distance.toFixed(2)} Ly)</span></div></div>
-                        <div class="result-item"><div class="result-label">Location Name</div><div class="result-value">${loc.name}</div></div>
+                        <div class="result-item">
+                            <div class="result-label">System</div>
+                            <div class="result-value flex-val">${sys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${sys.distance.toFixed(2)} Ly)</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${sys.name}', this)" title="Copy System Name">📋</button>
+                            </div>
+                        </div>
+                        <div class="result-item"><div class="result-label">Location Name</div><div class="result-value">${loc.name} <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">[${distLs}]</span></div></div>
                         <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${loc.type || 'Unknown'}</div></div>
+                        <div style="border-top: 1px solid var(--border); margin: 15px 0;"></div>
+                        <div class="result-item"><div class="result-label">Controlling Faction</div><div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${faction} <span style="color: var(--text-muted);">(${allegiance})</span></div></div>
+                        <div class="result-item"><div class="result-label">Primary Economy</div><div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${economy}</div></div>
                     `;
                     resultBox.style.display = 'block';
                     return;
@@ -456,7 +517,6 @@
                 
                 if (!sourceStationsData.stations) continue;
                 
-                // FIXED: Safely checking s.type
                 const validSourceStations = sourceStationsData.stations.filter(s => s.haveMarket && !(s.type || "").includes("Fleet Carrier"));
                 if (validSourceStations.length === 0) continue;
 
@@ -478,7 +538,6 @@
                         
                         if (!destStationsData.stations) continue;
                         
-                        // FIXED: Safely checking s.type
                         const validDestStations = destStationsData.stations.filter(s => s.haveMarket && !(s.type || "").includes("Fleet Carrier"));
                         if (validDestStations.length === 0) continue;
 
@@ -489,7 +548,9 @@
                         if (destMarketData.commodities) {
                             const demandsIt = destMarketData.commodities.find(c => c.id === chosenCommodity.id && c.demand > 0);
                             if (demandsIt) {
-                                renderCargoBriefing(sourceSys, sourceStation, destSys, destStation, chosenCommodity, resultBox);
+                                // Calculate the true jump distance between the Source and Destination
+                                const routeDistance = calcDistance(sourceSys, destSys);
+                                renderCargoBriefing(sourceSys, sourceStation, destSys, destStation, chosenCommodity, routeDistance, resultBox);
                                 return;
                             }
                         }
@@ -530,22 +591,32 @@
         }
     }
 
-    function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, resultBox) {
-        const units = Math.floor(Math.random() * 50) + 15;
+    function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
         resultBox.innerHTML = `
             <div class="mission-title">Contract: Independent Cargo Run</div>
             <div class="mission-brief">"Commander, we've identified a profitable supply chain gap. Procure the requested goods from the supplier and haul them to the designated market. Market fluctuations are your only risk."</div>
             
             <div class="cargo-route">
                 <div class="result-item"><div class="result-label">Step 1: Buy Commodity</div><div class="result-value">${commodity.name} <span style="color:var(--text-main); font-size:0.9rem; font-weight:normal;">(Approx ${commodity.buyPrice} CR/unit)</span></div></div>
-                <div class="result-item"><div class="result-label">Supplier Location</div><div class="result-value" style="color: #c9d1d9;">${srcStation.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${srcSys.name})</span></div></div>
+                <div class="result-item">
+                    <div class="result-label">Supplier System</div>
+                    <div class="result-value flex-val">${srcSys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${srcSys.distance.toFixed(2)} Ly away)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${srcSys.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item"><div class="result-label">Supplier Market</div><div class="result-value" style="color: #c9d1d9;">${srcStation.name}</div></div>
             </div>
 
             <div style="text-align: center; color: var(--text-muted); margin: 10px 0;">▼ DELIVER TO ▼</div>
 
             <div class="cargo-route" style="margin-top: 0;">
-                <div class="result-item"><div class="result-label">Destination Market</div><div class="result-value">${destStation.name}</div></div>
-                <div class="result-item"><div class="result-label">Target System</div><div class="result-value">${destSys.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${destSys.distance.toFixed(2)} Ly)</span></div></div>
+                <div class="result-item">
+                    <div class="result-label">Destination System</div>
+                    <div class="result-value flex-val">${destSys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${routeDistance.toFixed(2)} Ly from source)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${destSys.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item"><div class="result-label">Destination Market</div><div class="result-value" style="color: #c9d1d9;">${destStation.name}</div></div>
             </div>
         `;
         resultBox.style.display = 'block';
@@ -560,7 +631,12 @@
         resultBox.innerHTML = `
             <div class="mission-title">Contract: ${type}</div>
             <div class="mission-brief">"${briefing}"</div>
-            <div class="result-item"><div class="result-label">Target System</div><div class="result-value">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${system.distance.toFixed(2)} Ly)</span></div></div>
+            <div class="result-item">
+                <div class="result-label">Target System</div>
+                <div class="result-value flex-val">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${system.distance.toFixed(2)} Ly)</span>
+                    <button class="copy-btn" onclick="copyToClipboard('${system.name}', this)" title="Copy System Name">📋</button>
+                </div>
+            </div>
             <div class="result-item"><div class="result-label">Target Location</div><div class="result-value">${location.name}</div></div>
             <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${location.type || 'Unknown'}</div></div>
         `;
