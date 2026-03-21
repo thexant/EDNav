@@ -422,6 +422,12 @@
             </div>
         </div>
 
+        <div class="checkbox-group" style="margin-bottom: 15px; border-color: #ffb86c; background-color: rgba(255, 184, 108, 0.05);">
+            <label class="checkbox-label" style="color: #ffb86c; font-weight: bold;">
+                <input type="checkbox" id="tourismExpand"> Auto-Expand Radius if route runs dry
+            </label>
+        </div>
+
         <button class="submit-btn" id="tourismBtn" onclick="executeSearch('tourism')" style="background-color: #bd93f9; color: #fff;">Generate Itinerary</button>
         
         <div id="loader-tourism" class="loader">Consulting galactic travel guides...</div>
@@ -520,14 +526,20 @@
             if (!coordData.name || !coordData.coords) throw new Error(`Could not find coordinates for "${systemInput}".`);
 
             loader.innerText = '2/3: Plotting the surrounding sphere...';
-            const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    filters: {}, sort: [{ distance: { direction: "asc" } }], size: 150,
-                    reference_coords: { x: coordData.coords.x, y: coordData.coords.y, z: coordData.coords.z }
-                })
-            });
+            // Use our new helper function
+            let spanshSystems = await fetchSpanshSphere(coordData.coords, 150);
+
+            const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > 0 && sys.population > 0));
+            if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
+
+            if (isMission) {
+                await handleMissionLogic(searchPool, loader, resultBox);
+            } else if (isTourism) {
+                // Notice we are now passing the initial radius input to handleTourismLogic
+                await handleTourismLogic(searchPool, loader, resultBox, coordData, parseFloat(radiusInput)); 
+            } else {
+                await handleRandomLogic(searchPool, loader, resultBox);
+            }
 
             if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
             const spanshData = await spanshRes.json();
@@ -797,7 +809,7 @@
         }
     }
 
-    async function handleTourismLogic(searchPool, loader, resultBox, originCoordData) {
+    async function handleTourismLogic(searchPool, loader, resultBox, originCoordData, initialRadius) {
         const checkboxes = document.querySelectorAll('#tourismCheckboxes input[type="checkbox"]:checked');
         const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
 
@@ -806,6 +818,12 @@
         }
 
         const stopsCount = Math.min(5, Math.max(2, parseInt(document.getElementById('tourismStops').value) || 3));
+        const allowExpand = document.getElementById('tourismExpand').checked;
+        
+        let currentRadius = initialRadius;
+        let expandAttempts = 0;
+        const MAX_EXPANDS = 5; // Cap to prevent infinite loops (max 250ly extra)
+        let isExpandedSearch = false;
         
         let routeStops = [];
         let poolCopy = [...searchPool];
@@ -817,7 +835,7 @@
         let currentReferenceSystem = originCoordData; 
     
         for (let step = 0; step < stopsCount; step++) {
-            if (poolCopy.length === 0) break;
+            if (poolCopy.length === 0 && !allowExpand) break;
 
             poolCopy.sort((a, b) => calcDistance(currentReferenceSystem, a) - calcDistance(currentReferenceSystem, b));
             let foundStop = false;
@@ -827,9 +845,6 @@
                 let currentType = selectedTypes[Math.floor(Math.random() * selectedTypes.length)];
                 const legDist = calcDistance(currentReferenceSystem, sys); 
         
-                // ==========================================
-                // 1. ANOMALY LOGIC 
-                // ==========================================
                 if (currentType === 'Anomalies') {
                     loader.innerText = `3/3: Scanning ${sys.name} for anomalies (Waypoint ${step + 1})...`;
                     try {
@@ -848,13 +863,10 @@
                                 }
                                 
                                 if (isPlanet) {
-                                    // Forced Landable Anomalies
                                     if (!usedAnomalies.has('Gravity') && b.gravity && b.gravity >= 5.0 && isLandable) categoryMatch = 'Gravity';
                                     else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05 && isLandable) categoryMatch = 'Orbit';
                                     else if (!usedAnomalies.has('Rotation') && b.rotationalPeriod && Math.abs(b.rotationalPeriod) <= 0.05 && isLandable) categoryMatch = 'Rotation';
                                     else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300 && isLandable) categoryMatch = 'Micro';
-                                    
-                                    // Visual/Orbital Anomalies (Not necessarily landable)
                                     else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
                                     else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
                                     else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
@@ -874,14 +886,8 @@
                                 
                                 if (loc.matchedCategory === 'RareStar') reason = `Rare Stellar Body (${loc.subType})`;
                                 else if (loc.matchedCategory === 'Gravity') reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
-                                else if (loc.matchedCategory === 'Orbit') {
-                                    const orbitMins = loc.orbitalPeriod * 1440;
-                                    reason = orbitMins < 60 ? `Whip Orbit (${orbitMins.toFixed(0)} mins)` : `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
-                                }
-                                else if (loc.matchedCategory === 'Rotation') {
-                                    const rotMins = Math.abs(loc.rotationalPeriod) * 1440;
-                                    reason = rotMins < 60 ? `Dizzying Spin (${rotMins.toFixed(0)} mins)` : `Fast Day/Night (${(Math.abs(loc.rotationalPeriod) * 24).toFixed(1)} hrs)`;
-                                }
+                                else if (loc.matchedCategory === 'Orbit') reason = `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
+                                else if (loc.matchedCategory === 'Rotation') reason = `Fast Day/Night (${(Math.abs(loc.rotationalPeriod) * 24).toFixed(1)} hrs)`;
                                 else if (loc.matchedCategory === 'Inferno') reason = `Inferno World (${loc.surfaceTemperature}K)`;
                                 else if (loc.matchedCategory === 'Freeze') reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
                                 else if (loc.matchedCategory === 'Eccentric') reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
@@ -889,10 +895,15 @@
                                 else if (loc.matchedCategory === 'RingedRare') reason = `Ringed Rare World (${loc.subType})`;
         
                                 usedAnomalies.add(loc.matchedCategory);
-                                routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true, stopType: currentType, legDistance: legDist });
+                                routeStops.push({ 
+                                    system: sys, location: loc, anomalyReason: reason, isBody: true, 
+                                    stopType: currentType, legDistance: legDist, isExpanded: isExpandedSearch 
+                                });
                                 poolCopy.splice(i, 1);
                                 foundStop = true;
                                 currentReferenceSystem = sys;
+                                isExpandedSearch = false; // Reset flag
+                                expandAttempts = 0; // Reset attempts
                                 break;
                             }
                         }
@@ -903,9 +914,6 @@
                     continue;
                 }
         
-                // ==========================================
-                // 2. STANDARD STATION LOGIC 
-                // ==========================================
                 loader.innerText = `3/3: Booking itinerary for waypoint ${step + 1} (${sys.name})...`;
                 const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
                 const stationData = await stationRes.json();
@@ -948,17 +956,44 @@
                         if (loc.profileTag) usedStationProfiles.add(loc.profileTag);
                         if (loc.econTag) usedGrandTourEconomies.add(loc.econTag);
 
-                        routeStops.push({ system: sys, location: loc, stopType: currentType, legDistance: legDist });
+                        routeStops.push({ 
+                            system: sys, location: loc, stopType: currentType, legDistance: legDist, 
+                            isExpanded: isExpandedSearch 
+                        });
                         poolCopy.splice(i, 1);
                         foundStop = true;
                         currentReferenceSystem = sys; 
+                        isExpandedSearch = false; // Reset flag
+                        expandAttempts = 0; // Reset attempts
                         break; 
                     }
                 }
                 await new Promise(r => setTimeout(r, 800)); 
             }
 
-            if (!foundStop) break; 
+            // === THE NEW EXPANSION LOGIC ===
+            if (!foundStop) {
+                if (allowExpand && expandAttempts < MAX_EXPANDS) {
+                    expandAttempts++;
+                    currentRadius += 50; 
+                    isExpandedSearch = true; // Mark that the NEXT stop we find was a result of expansion
+                    loader.innerText = `Search exhausted. Expanding radius to ${currentRadius}Ly for waypoint ${step + 1}...`;
+                    
+                    let refCoords = currentReferenceSystem.coords || currentReferenceSystem;
+                    if (!refCoords.x) refCoords = originCoordData.coords; // Fallback to start if coords missing
+
+                    // Fetch a larger sphere from our CURRENT location in the tour
+                    let newSystems = await fetchSpanshSphere(refCoords, 200);
+                    
+                    // Repopulate poolCopy with the newly expanded area
+                    poolCopy = shuffleArray(newSystems.filter(sys => sys.distance <= currentRadius && sys.distance > 0 && sys.population > 0));
+                    
+                    step--; // Decrease step so the loop retries finding THIS waypoint
+                    continue;
+                } else {
+                    break; // Max expands reached, or user disabled expansion
+                }
+            }
         }
     
         if (routeStops.length > 0) {
@@ -966,9 +1001,35 @@
             return;
         }
     
-        throw new Error(`Could not construct an itinerary with ${stopsCount} stops using the selected packages. Try increasing the radius or selecting more packages.`);
+        throw new Error(`Could not construct an itinerary with ${stopsCount} stops. Try increasing the base radius, selecting more packages, or turning on Auto-Expand.`);
     }
+    async function fetchSpanshSphere(coords, size = 150) {
+        const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filters: {}, sort: [{ distance: { direction: "asc" } }], size: size,
+                reference_coords: { x: coords.x, y: coords.y, z: coords.z }
+            })
+        });
 
+        if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
+        const spanshData = await spanshRes.json();
+        let spanshSystems = spanshData.results || [];
+
+        if (spanshData.reference) {
+            for (let attempts = 0; attempts < 15; attempts++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
+                const pollData = await pollRes.json();
+                if (pollData.status === 'ok' && pollData.results) {
+                    spanshSystems = pollData.results;
+                    break;
+                }
+            }
+        }
+        return spanshSystems;
+    }
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
         resultBox.innerHTML = `
             <div class="mission-title">Contract: Independent Cargo Run</div>
@@ -1111,11 +1172,15 @@
             <div class="mission-title" style="color: #bd93f9; border-bottom-color: #bd93f9;">${title}</div>
             <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(189, 147, 249, 0.05); border-left-color: #bd93f9;">"Passenger Manifest Updated. ${baseBriefing}"</div>
         `;
-
         routeStops.forEach((stop, index) => {
             let locInfo = "";
             let landableTag = stop.location.isLandable || stop.location.isPlanetary || (stop.location.type || "").includes("Planetary") || (stop.location.type || "").includes("Settlement") 
                 ? `<span style="color: #50fa7b; font-size: 0.7rem; margin-left: 8px; border: 1px solid #50fa7b; padding: 1px 4px; border-radius: 3px; vertical-align: text-bottom;">LANDABLE</span>` 
+                : '';
+
+            // Creates the badge if this stop triggered an expansion
+            let expandBadge = stop.isExpanded 
+                ? `<span style="color: #ff5555; font-size: 0.7rem; margin-left: 8px; border: 1px solid #ff5555; background-color: rgba(255,85,85,0.1); padding: 1px 4px; border-radius: 3px; vertical-align: middle;">RADIUS EXPANDED</span>` 
                 : '';
 
             if (stop.isBody) {
@@ -1130,9 +1195,9 @@
             }
 
             html += `
-            <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: #6272a4; background-color: rgba(98, 114, 164, 0.05);">
+            <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: ${stop.isExpanded ? '#ff5555' : '#6272a4'}; background-color: rgba(98, 114, 164, 0.05);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <div style="color: #bd93f9; font-size: 0.8rem; font-weight: bold;">DESTINATION ${index + 1}</div>
+                    <div style="color: ${stop.isExpanded ? '#ff5555' : '#bd93f9'}; font-size: 0.8rem; font-weight: bold;">DESTINATION ${index + 1} ${expandBadge}</div>
                     ${stopSubTitle}
                 </div>
                 <div class="result-item">
