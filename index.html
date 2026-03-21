@@ -233,6 +233,11 @@
                     <option value="Industrial">Industrial</option>
                     <option value="Military">Military</option>
                     <option value="Refinery">Refinery</option>
+					<option value="Tourism">Tourism</option>
+					<option value="Service">Service</option>
+					<option value="Terraforming">Terraforming</option>
+					<option value="Colony">Colony</option>
+					<option value="Resuce">Rescue</option>
                 </select>
             </div>
         </div>
@@ -279,7 +284,7 @@
         return array;
     }
 
-		async function findRandomLocation() {
+	async function findRandomLocation() {
         const systemInput = document.getElementById('systemName').value.trim();
         const radiusInput = document.getElementById('radius').value;
         const filterAllegiance = document.getElementById('filterAllegiance').value;
@@ -316,7 +321,7 @@
             const spanshPayload = {
                 filters: {}, 
                 sort: [{ distance: { direction: "asc" } }],
-                size: 300, // Pulled a bit larger to ensure we have enough to filter
+                size: 150, // Reduced to be kinder to Spansh servers
                 reference_coords: {
                     x: coordData.coords.x,
                     y: coordData.coords.y,
@@ -330,6 +335,14 @@
                 body: JSON.stringify(spanshPayload)
             });
 
+            // NEW: Catch Spansh Rate Limiting
+            if (spanshRes.status === 429) {
+                throw new Error("Spansh rate limit triggered! The database only allows a few heavy searches per minute. Give it 60 seconds to cool down and try again.");
+            }
+            if (!spanshRes.ok) {
+                throw new Error(`Spansh database error: ${spanshRes.status} ${spanshRes.statusText}`);
+            }
+
             const spanshData = await spanshRes.json();
             let spanshSystems = [];
 
@@ -339,6 +352,12 @@
                     await new Promise(r => setTimeout(r, 1000));
                     loader.innerText = `2/3: Waiting for Spansh job queue... (Attempt ${attempts + 1})`;
                     const pollRes = await fetch(`https://spansh.co.uk/api/results/${spanshData.reference}`);
+                    
+                    // NEW: Catch polling rate limit
+                    if (pollRes.status === 429) {
+                         throw new Error("Spansh rate limit triggered while loading! Give it 60 seconds to cool down.");
+                    }
+
                     const pollData = await pollRes.json();
                     
                     if (pollData.status === 'ok' && pollData.results) {
@@ -352,7 +371,7 @@
             }
 
             if (spanshSystems.length === 0) {
-                throw new Error("Spansh returned no data. The API might be busy.");
+                throw new Error("Spansh returned no data. The API might be down.");
             }
 
             // FILTER STAGE 1: Spansh System-Level Filters
@@ -376,7 +395,7 @@
             // Step 3: EDSM for Station Data
             let foundLocation = null;
             let targetSystem = null;
-            const maxAttempts = Math.min(searchPool.length, 10); // Bumped to 10 for harder filter criteria
+            const maxAttempts = Math.min(searchPool.length, 10); 
 
             for (let i = 0; i < maxAttempts; i++) {
                 const sys = searchPool[i];
