@@ -551,7 +551,7 @@
             if (isMission) {
                 await handleMissionLogic(searchPool, loader, resultBox);
             } else if (isTourism) {
-                await handleTourismLogic(searchPool, loader, resultBox);
+                await handleTourismLogic(searchPool, loader, resultBox, coordData); // Added coordData
             } else {
                 await handleRandomLogic(searchPool, loader, resultBox);
             }
@@ -779,8 +779,7 @@
         }
     }
 
-    async function handleTourismLogic(searchPool, loader, resultBox) {
-        // Gather all checked boxes
+async function handleTourismLogic(searchPool, loader, resultBox, originCoordData) {
         const checkboxes = document.querySelectorAll('#tourismCheckboxes input[type="checkbox"]:checked');
         const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
 
@@ -793,93 +792,141 @@
         let routeStops = [];
         let poolCopy = [...searchPool];
         let usedEconomies = new Set();
+        
+        // Start the route at the origin system
+        let currentReferenceSystem = originCoordData; 
     
-        for (let i = 0; i < poolCopy.length; i++) {
-            if (routeStops.length >= stopsCount) break;
-    
-            const sys = poolCopy[i];
-            
-            // Pick a random theme from the user's selected options for this waypoint
-            let currentType = selectedTypes[Math.floor(Math.random() * selectedTypes.length)];
-    
-            if (currentType === 'Anomalies') {
-                loader.innerText = `3/3: Scanning ${sys.name} for astronomical anomalies (Waypoint ${routeStops.length + 1})...`;
-                try {
-                    const bodyRes = await fetch(`https://www.edsm.net/api-system-v1/bodies?systemName=${encodeURIComponent(sys.name)}`);
-                    const bodyData = await bodyRes.json();
-                    
-                    if (bodyData.bodies && bodyData.bodies.length > 0) {
-                        const anomalies = bodyData.bodies.filter(b => {
-                            if (b.type === 'Star') return false; 
-                            return (b.gravity && b.gravity > 2.5) || 
-                                   (b.orbitalPeriod && b.orbitalPeriod < 0.25) || 
-                                   (b.surfaceTemperature && b.surfaceTemperature > 1500) ||
-                                   (b.surfaceTemperature && b.surfaceTemperature < 30);
-                        });
-    
-                        if (anomalies.length > 0) {
-                            const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
-                            let reason = "Interesting Astronomical POI";
-                            if (loc.gravity > 2.5) reason = `High Gravity (${loc.gravity.toFixed(2)}G)`;
-                            else if (loc.orbitalPeriod < 1.0) reason = `Fast Orbit (${loc.orbitalPeriod.toFixed(2)} days)`;
-                            else if (loc.surfaceTemperature > 1500) reason = `Scorching Planet (${loc.surfaceTemperature}K)`;
-                            else if (loc.surfaceTemperature < 30) reason = `Deep Freeze (${loc.surfaceTemperature}K)`;
-    
-                            routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true, stopType: currentType });
-                            poolCopy.splice(i, 1);
-                            i--;
+        for (let step = 0; step < stopsCount; step++) {
+            if (poolCopy.length === 0) break;
+
+            // Sort the remaining pool by distance to the CURRENT reference system (nearest neighbor)
+            poolCopy.sort((a, b) => calcDistance(currentReferenceSystem, a) - calcDistance(currentReferenceSystem, b));
+
+            let foundStop = false;
+
+            for (let i = 0; i < poolCopy.length; i++) {
+                const sys = poolCopy[i];
+                let currentType = selectedTypes[Math.floor(Math.random() * selectedTypes.length)];
+                const legDist = calcDistance(currentReferenceSystem, sys); // Calculate the jump distance
+        
+                if (currentType === 'Anomalies') {
+                    loader.innerText = `3/3: Scanning ${sys.name} for anomalies (Waypoint ${step + 1})...`;
+                    try {
+                        const bodyRes = await fetch(`https://www.edsm.net/api-system-v1/bodies?systemName=${encodeURIComponent(sys.name)}`);
+                        const bodyData = await bodyRes.json();
+                        
+                        if (bodyData.bodies && bodyData.bodies.length > 0) {
+                            const anomalies = bodyData.bodies.filter(b => {
+                                const isStar = b.type === 'Star';
+                                const isPlanet = b.type === 'Planet';
+                                
+                                // 1. Rare Star Types
+                                if (isStar) {
+                                    return b.subType === 'Black Hole' || 
+                                           b.subType === 'Neutron Star' || 
+                                           b.subType === 'Wolf-Rayet Star';
+                                }
+                                
+                                // 2. Extreme Planetary Conditions
+                                if (isPlanet) {
+                                    return (b.gravity && b.gravity >= 3.5) || // Crushing Gravity
+                                           (b.orbitalPeriod && b.orbitalPeriod <= 0.05) || // Whip Orbits (< 1.2 hours)
+                                           (b.surfaceTemperature && b.surfaceTemperature >= 2500) || // Inferno
+                                           (b.surfaceTemperature && b.surfaceTemperature <= 30) || // Deep Freeze
+                                           (b.eccentricity && b.eccentricity >= 0.9) || // Highly Elliptical
+                                           (b.radius && b.radius <= 300) || // Micro-planets
+                                           (b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')); // Rare Ringed Worlds
+                                }
+                                return false;
+                            });
+        
+                            if (anomalies.length > 0) {
+                                const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
+                                let reason = "Interesting Astronomical POI";
+                                
+                                if (loc.type === 'Star') {
+                                    reason = `Rare Stellar Body (${loc.subType})`;
+                                } else {
+                                    if (loc.gravity >= 3.5) {
+                                        reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
+                                    } else if (loc.orbitalPeriod <= 0.05) {
+                                        // Format the orbit into minutes or hours for easier reading
+                                        const orbitMins = loc.orbitalPeriod * 1440;
+                                        reason = orbitMins < 60 ? `Whip Orbit (${orbitMins.toFixed(0)} mins)` : `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
+                                    } else if (loc.surfaceTemperature >= 2500) {
+                                        reason = `Inferno World (${loc.surfaceTemperature}K)`;
+                                    } else if (loc.surfaceTemperature <= 30) {
+                                        reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
+                                    } else if (loc.eccentricity >= 0.9) {
+                                        reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
+                                    } else if (loc.radius <= 300) {
+                                        reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
+                                    } else if (loc.rings && loc.rings.length > 0) {
+                                        reason = `Ringed Rare World (${loc.subType})`;
+                                    }
+                                }
+        
+                                routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true, stopType: currentType, legDistance: legDist });
+                                poolCopy.splice(i, 1);
+                                foundStop = true;
+                                currentReferenceSystem = sys; // Update reference for the next step
+                                break;
+                            }
                         }
+                    } catch (e) {
+                        console.error("Body fetch error", e);
                     }
-                } catch (e) {
-                    console.error("Body fetch error", e);
+                    await new Promise(r => setTimeout(r, 800));
+                    continue;
                 }
-                await new Promise(r => setTimeout(r, 800));
-                continue;
-            }
-    
-            // STANDARD STATION LOGIC
-            loader.innerText = `3/3: Booking itinerary for waypoint ${routeStops.length + 1}...`;
-            const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
-            const stationData = await stationRes.json();
-    
-            if (stationData.stations) {
-                const validStations = stationData.stations.filter(st => {
-                    const type = st.type || "";
-                    const econ = st.economy || "";
-                    if (type.includes("Fleet Carrier")) return false;
-                    
-                    if (currentType === 'Beacons') {
-                        return type.includes("Beacon") || (st.name && st.name.includes("Beacon"));
-                    } else if (currentType === 'Luxury') {
-                        return econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
-                    } else if (currentType === 'Adventure') {
-                        return st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
-                    } else if (currentType === 'GrandTour') {
-                        if (!econ || econ === "None") return false;
-                        if (usedEconomies.has(econ)) return false; 
+        
+                // STANDARD STATION LOGIC
+                loader.innerText = `3/3: Booking itinerary for waypoint ${step + 1} (${sys.name})...`;
+                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+                const stationData = await stationRes.json();
+        
+                if (stationData.stations) {
+                    const validStations = stationData.stations.filter(st => {
+                        const type = st.type || "";
+                        const econ = st.economy || "";
+                        if (type.includes("Fleet Carrier")) return false;
+                        
+                        if (currentType === 'Beacons') {
+                            return type === "Tourist Beacon";
+                        } else if (currentType === 'Luxury') {
+                            return econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
+                        } else if (currentType === 'Adventure') {
+                            return st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
+                        } else if (currentType === 'GrandTour') {
+                            if (!econ || econ === "None") return false;
+                            if (usedEconomies.has(econ)) return false; 
+                            return true;
+                        }
                         return true;
+                    });
+        
+                    if (validStations.length > 0) {
+                        const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                        routeStops.push({ system: sys, location: loc, stopType: currentType, legDistance: legDist });
+                        if (loc.economy) usedEconomies.add(loc.economy);
+                        poolCopy.splice(i, 1);
+                        foundStop = true;
+                        currentReferenceSystem = sys; // Update reference for the next step
+                        break; 
                     }
-                    return true;
-                });
-    
-                if (validStations.length > 0) {
-                    const loc = validStations[Math.floor(Math.random() * validStations.length)];
-                    routeStops.push({ system: sys, location: loc, stopType: currentType });
-                    if (loc.economy) usedEconomies.add(loc.economy);
-                    poolCopy.splice(i, 1);
-                    i--; 
                 }
+                await new Promise(r => setTimeout(r, 800)); 
             }
-            await new Promise(r => setTimeout(r, 800)); 
+
+            if (!foundStop) break; // If we scanned the whole remaining pool and found nothing, stop building
         }
     
         if (routeStops.length > 0) {
-            // Pass the selectedTypes array to the briefing renderer
             renderTourismBriefing(routeStops, selectedTypes, resultBox);
             return;
         }
     
-        throw new Error(`Could not construct an itinerary with ${stopsCount} stops using the selected packages. Try increasing the radius or selecting more packages.`);
+        throw new Error(`Could not construct an itinerary with ${stopsCount} stops using the selected packages. Try increasing the radius.`);
     }
 
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
