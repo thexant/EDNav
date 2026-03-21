@@ -518,7 +518,6 @@
         loader.style.display = 'block';
         resultBox.style.display = 'none';
         resultBox.innerHTML = '';
-
         try {
             loader.innerText = '1/3: Getting jump coordinates...';
             const coordRes = await fetch(`https://www.edsm.net/api-v1/system?systemName=${encodeURIComponent(systemInput)}&showCoordinates=1`);
@@ -541,33 +540,6 @@
                 await handleRandomLogic(searchPool, loader, resultBox);
             }
 
-            if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
-            const spanshData = await spanshRes.json();
-            let spanshSystems = spanshData.results || [];
-
-            if (spanshData.reference) {
-                for (let attempts = 0; attempts < 15; attempts++) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
-                    const pollData = await pollRes.json();
-                    if (pollData.status === 'ok' && pollData.results) {
-                        spanshSystems = pollData.results;
-                        break;
-                    }
-                }
-            }
-
-            const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > 0 && sys.population > 0));
-            if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
-
-            if (isMission) {
-                await handleMissionLogic(searchPool, loader, resultBox);
-            } else if (isTourism) {
-                await handleTourismLogic(searchPool, loader, resultBox, coordData); // Added coordData
-            } else {
-                await handleRandomLogic(searchPool, loader, resultBox);
-            }
-
         } catch (error) {
             resultBox.style.display = 'block';
             resultBox.innerHTML = `<div style="color: #ff5555;">Error: ${error.message}</div>`;
@@ -575,7 +547,6 @@
             btn.disabled = false;
             loader.style.display = 'none';
         }
-    }
 
     async function handleRandomLogic(searchPool, loader, resultBox) {
         const filterAllegiance = document.getElementById('filterAllegiance').value;
