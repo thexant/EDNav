@@ -12,6 +12,10 @@
             --text-muted: #8b949e;
             --accent: #ff8c00;
             --border: #30363d;
+            --danger: #ff5555;
+            --success: #50fa7b;
+            --info: #8be9fd;
+            --purple: #bd93f9;
         }
 
         body {
@@ -25,7 +29,7 @@
         }
 
         .container {
-            max-width: 650px;
+            max-width: 680px;
             width: 100%;
             background-color: var(--panel-bg);
             border: 1px solid var(--border);
@@ -42,28 +46,61 @@
         }
 
         .header h1 {
-            margin: 0;
+            margin: 0 0 15px 0;
             color: var(--accent);
             font-size: 1.5rem;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
 
+        .global-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255,255,255,0.02);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .scramble-btn {
+            background-color: var(--danger);
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            box-shadow: 0 0 8px rgba(255, 85, 85, 0.4);
+        }
+
+        .scramble-btn:hover {
+            background-color: #ff3333;
+            box-shadow: 0 0 12px rgba(255, 85, 85, 0.6);
+            transform: translateY(-1px);
+        }
+
         .tabs {
             display: flex;
             border-bottom: 1px solid var(--border);
+            background-color: #0d1117;
         }
 
         .tab {
             flex: 1;
-            padding: 15px;
+            padding: 12px 5px;
             text-align: center;
             background: none;
             border: none;
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.95rem;
             transition: all 0.2s;
+            border-bottom: 2px solid transparent;
         }
 
         .tab.active {
@@ -108,21 +145,16 @@
             box-sizing: border-box;
         }
 
-        input:disabled {
+        input:disabled, select:disabled {
             background-color: #010409;
             color: #555;
             cursor: not-allowed;
+            border-color: #222;
         }
 
         select:focus, input:focus {
             outline: none;
             border-color: var(--accent);
-        }
-
-        .hint {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-top: 4px;
         }
 
         button.submit-btn {
@@ -140,15 +172,8 @@
             margin-top: 10px;
         }
 
-        button.submit-btn:hover:not(:disabled) {
-            background-color: #e07b00;
-        }
-
-        button.submit-btn:disabled {
-            background-color: #555;
-            color: #888;
-            cursor: not-allowed;
-        }
+        button.submit-btn:hover:not(:disabled) { background-color: #e07b00; }
+        button.submit-btn:disabled { background-color: #555; color: #888; cursor: not-allowed; }
 
         .result-box {
             margin-top: 20px;
@@ -159,26 +184,10 @@
             display: none;
         }
 
-        .result-item {
-            margin-bottom: 8px;
-        }
-
-        .result-label {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-
-        .result-value {
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: var(--accent);
-        }
-
-        .flex-val {
-            display: flex;
-            align-items: center;
-        }
+        .result-item { margin-bottom: 8px; }
+        .result-label { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; }
+        .result-value { font-weight: bold; font-size: 1.1rem; color: var(--accent); }
+        .flex-val { display: flex; align-items: center; }
 
         .copy-btn {
             background: var(--panel-bg);
@@ -192,19 +201,9 @@
             margin-left: 10px;
         }
 
-        .copy-btn:hover {
-            color: var(--text-main);
-            border-color: var(--accent);
-            background-color: rgba(255, 140, 0, 0.1);
-        }
+        .copy-btn:hover { color: var(--text-main); border-color: var(--accent); background-color: rgba(255, 140, 0, 0.1); }
 
-        .loader {
-            text-align: center;
-            color: var(--text-muted);
-            font-style: italic;
-            display: none;
-            margin-top: 15px;
-        }
+        .loader { text-align: center; color: var(--text-muted); font-style: italic; display: none; margin-top: 15px; }
 
         .mission-title {
             color: var(--accent);
@@ -233,6 +232,7 @@
             margin-top: 15px;
             border-radius: 4px;
         }
+
         .checkbox-group {
             display: flex;
             flex-direction: column;
@@ -245,22 +245,36 @@
         }
 
         .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 0;
-            color: var(--text-main);
-            font-size: 0.95rem;
-            cursor: pointer;
+            display: flex; align-items: center; gap: 10px; margin: 0; color: var(--text-main); font-size: 0.95rem; cursor: pointer;
         }
 
-        .checkbox-label input[type="checkbox"] {
-            margin: 0;
-            width: 16px;
-            height: 16px;
+        .checkbox-label input[type="checkbox"] { margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--purple); }
+
+        /* Narrative Specific Styles */
+        .chapter-container { display: none; animation: fadeIn 0.5s ease-in; }
+        .chapter-container.active { display: block; }
+        
+        .next-chapter-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: transparent;
+            color: var(--info);
+            border: 1px dashed var(--info);
+            border-radius: 4px;
             cursor: pointer;
-            accent-color: #bd93f9;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s;
         }
+        
+        .next-chapter-btn:hover {
+            background-color: rgba(139, 233, 253, 0.1);
+            border-style: solid;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
     </style>
 </head>
 <body>
@@ -268,23 +282,37 @@
 <div class="container">
     <div class="header">
         <h1>Nav Computer Interface</h1>
+        <div class="global-controls">
+            <div style="flex: 1; text-align: left;">
+                <label for="globalShipProfile" style="font-size: 0.75rem; margin-bottom: 2px;">Active Vessel Loadout</label>
+                <select id="globalShipProfile" style="padding: 6px; font-size: 0.85rem;" onchange="applyShipDirectives()">
+                    <option value="Multi">Multi-Role (All Activities)</option>
+                    <option value="Combat">Heavy Combat (Weapons Hot)</option>
+                    <option value="Hauler">Heavy Hauler (High Cargo, Unarmed)</option>
+                    <option value="Explorer">Deep Space Explorer (Jump Range, Scanners)</option>
+                    <option value="Smuggler">Covert / Blockade Runner (Cool & Fast)</option>
+                </select>
+            </div>
+            <button class="scramble-btn" onclick="executeScrambleProtocol()" title="Randomize and launch immediately">Scramble Protocol</button>
+        </div>
     </div>
     
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('random')">Random Location</button>
-        <button class="tab" onclick="switchTab('mission')">Mission Board</button>
+        <button class="tab" onclick="switchTab('random')">Random</button>
+        <button class="tab active" onclick="switchTab('mission')">Mission Board</button>
         <button class="tab" onclick="switchTab('tourism')">Tourism</button>
+        <button class="tab" onclick="switchTab('narrative')" style="color: var(--info);">Campaigns</button>
     </div>
 
-    <div id="mode-random" class="mode-content active">
+    <div id="mode-random" class="mode-content">
         <div class="form-group">
             <label for="systemName">Current System *</label>
-            <input type="text" id="systemName" placeholder="e.g., Sol, Shinrarta Dezhra" required>
+            <input type="text" id="systemName" value="Col 285 Sector CL-U b4-1" required>
         </div>
         
         <div class="form-group">
             <label for="radius">Radius (Ly) *</label>
-            <input type="number" id="radius" placeholder="e.g., 50" min="1" max="100" value="50" required>
+            <input type="number" id="radius" min="1" max="100" value="50" required>
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -352,12 +380,12 @@
         <div id="result-box-random" class="result-box"></div>
     </div>
 
-    <div id="mode-mission" class="mode-content">
+    <div id="mode-mission" class="mode-content active">
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a randomized contract based on live galaxy data.</p>
         
         <div class="form-group">
             <label for="missionSystem">Current System *</label>
-            <input type="text" id="missionSystem" placeholder="Where are you currently docked?" required>
+            <input type="text" id="missionSystem" value="Col 285 Sector CL-U b4-1" required>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -397,7 +425,7 @@
         
         <div class="form-group">
             <label for="tourismSystem">Current System *</label>
-            <input type="text" id="tourismSystem" placeholder="Where is the tour starting?" required>
+            <input type="text" id="tourismSystem" value="Col 285 Sector CL-U b4-1" required>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -433,9 +461,37 @@
         <div id="loader-tourism" class="loader">Consulting galactic travel guides...</div>
         <div id="result-box-tourism" class="result-box"></div>
     </div>
+
+    <div id="mode-narrative" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a multi-stage operational campaign. WOSC contacts will provide instructions step-by-step.</p>
+        <div class="form-group">
+            <label>Origin System *</label>
+            <input type="text" id="narrativeSystem" value="Col 285 Sector CL-U b4-1" required>
+        </div>
+        <div class="form-group">
+            <label>Max Operational Radius (Ly) *</label>
+            <input type="number" id="narrativeRadius" value="60" min="20" max="150" required>
+        </div>
+        <div class="form-group">
+            <label>Campaign Length</label>
+            <select id="narrativeLength">
+                <option value="3">Standard (3 Chapters)</option>
+                <option value="4">Extended (4 Chapters)</option>
+                <option value="5">Epic (5 Chapters)</option>
+            </select>
+        </div>
+        <button class="submit-btn" id="narrativeBtn" onclick="executeSearch('narrative')" style="background-color: var(--info); color: #000;">Initialize Campaign</button>
+        <div id="loader-narrative" class="loader">Constructing narrative threads...</div>
+        <div id="result-box-narrative" class="result-box"></div>
+    </div>
 </div>
 
 <script>
+    // --- Global Variables for Narrative ---
+    let currentNarrativeData = [];
+    let currentChapterIndex = 0;
+
+    // --- Event Listeners & UI State ---
     document.getElementById('missionType').addEventListener('change', function() {
         const stopsInput = document.getElementById('missionStops');
         const stopsGroup = document.getElementById('stopsGroup');
@@ -453,10 +509,81 @@
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
         
-        event.target.classList.add('active');
+        // Find the button that called this and make it active
+        document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
         document.getElementById('mode-' + tabId).classList.add('active');
+        
+        applyShipDirectives();
     }
 
+    // --- Ship Profile Logic ---
+    function applyShipDirectives() {
+        const profile = document.getElementById('globalShipProfile').value;
+        const missionSelect = document.getElementById('missionType');
+        const tourismCheckboxes = document.querySelectorAll('#tourismCheckboxes input[type="checkbox"]');
+        
+        // Reset all
+        Array.from(missionSelect.options).forEach(opt => opt.disabled = false);
+        tourismCheckboxes.forEach(cb => { cb.disabled = false; cb.parentElement.style.opacity = '1'; });
+
+        if (profile === 'Combat') {
+            if(missionSelect.value !== 'Combat' && missionSelect.value !== 'Freelance' && missionSelect.value !== 'Any') missionSelect.value = "Combat";
+            Array.from(missionSelect.options).forEach(opt => {
+                if(!['Combat', 'Freelance', 'Any'].includes(opt.value)) opt.disabled = true;
+            });
+        } else if (profile === 'Hauler') {
+            if(['Combat', 'Smuggling', 'Surface'].includes(missionSelect.value)) missionSelect.value = "Cargo";
+            Array.from(missionSelect.options).forEach(opt => {
+                if(['Combat', 'Smuggling', 'Surface'].includes(opt.value)) opt.disabled = true;
+            });
+        } else if (profile === 'Explorer') {
+            if(['Combat', 'Cargo', 'Mining'].includes(missionSelect.value)) missionSelect.value = "Surface";
+            Array.from(missionSelect.options).forEach(opt => {
+                if(['Combat', 'Cargo', 'Mining'].includes(opt.value)) opt.disabled = true;
+            });
+            tourismCheckboxes.forEach(cb => {
+                if (cb.value === 'Luxury') { cb.disabled = true; cb.checked = false; cb.parentElement.style.opacity = '0.4'; }
+            });
+        } else if (profile === 'Smuggler') {
+            if(['Mining', 'Rescue', 'Combat'].includes(missionSelect.value)) missionSelect.value = "Smuggling";
+            Array.from(missionSelect.options).forEach(opt => {
+                if(['Mining', 'Rescue', 'Combat'].includes(opt.value)) opt.disabled = true;
+            });
+        }
+        
+        // Trigger the change event manually to update the stops input correctly
+        missionSelect.dispatchEvent(new Event('change'));
+    }
+
+    // --- Scramble Protocol ---
+    function executeScrambleProtocol() {
+        const tabs = ['mission', 'tourism', 'narrative'];
+        const randomTab = tabs[Math.floor(Math.random() * tabs.length)];
+        switchTab(randomTab);
+
+        if (randomTab === 'mission') {
+            document.getElementById('missionRadius').value = Math.floor(Math.random() * 50) + 20;
+            const validOptions = Array.from(document.getElementById('missionType').options).filter(o => !o.disabled && o.value !== 'Any');
+            const chosenType = validOptions[Math.floor(Math.random() * validOptions.length)].value;
+            document.getElementById('missionType').value = chosenType;
+            document.getElementById('missionType').dispatchEvent(new Event('change'));
+            
+            if (chosenType !== 'Cargo' && chosenType !== 'Smuggling') {
+                document.getElementById('missionStops').value = Math.floor(Math.random() * 3) + 1;
+            }
+        } else if (randomTab === 'tourism') {
+            document.getElementById('tourismRadius').value = Math.floor(Math.random() * 70) + 30;
+            document.getElementById('tourismStops').value = Math.floor(Math.random() * 2) + 2;
+        } else if (randomTab === 'narrative') {
+            document.getElementById('narrativeRadius').value = Math.floor(Math.random() * 60) + 40;
+            const lengths = ['3', '4', '5'];
+            document.getElementById('narrativeLength').value = lengths[Math.floor(Math.random() * lengths.length)];
+        }
+
+        executeSearch(randomTab);
+    }
+
+    // --- Utility Functions ---
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -485,22 +612,52 @@
         return Math.sqrt(Math.pow(c2.x - c1.x, 2) + Math.pow(c2.y - c1.y, 2) + Math.pow(c2.z - c1.z, 2));
     }
 
+    // --- Core API Calls ---
+    async function fetchSpanshSphere(coords, size = 150) {
+        const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filters: {}, sort: [{ distance: { direction: "asc" } }], size: size,
+                reference_coords: { x: coords.x, y: coords.y, z: coords.z }
+            })
+        });
+
+        if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
+        const spanshData = await spanshRes.json();
+        let spanshSystems = spanshData.results || [];
+
+        if (spanshData.reference) {
+            for (let attempts = 0; attempts < 15; attempts++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
+                const pollData = await pollRes.json();
+                if (pollData.status === 'ok' && pollData.results) {
+                    spanshSystems = pollData.results;
+                    break;
+                }
+            }
+        }
+        return spanshSystems;
+    }
+
     async function executeSearch(mode) {
-        const isMission = mode === 'mission';
-        const isTourism = mode === 'tourism';
-        
         let systemInputId = 'systemName';
         let radiusInputId = 'radius';
         let btnId = 'searchBtn';
         
-        if (isMission) {
+        if (mode === 'mission') {
             systemInputId = 'missionSystem';
             radiusInputId = 'missionRadius';
             btnId = 'missionBtn';
-        } else if (isTourism) {
+        } else if (mode === 'tourism') {
             systemInputId = 'tourismSystem';
             radiusInputId = 'tourismRadius';
             btnId = 'tourismBtn';
+        } else if (mode === 'narrative') {
+            systemInputId = 'narrativeSystem';
+            radiusInputId = 'narrativeRadius';
+            btnId = 'narrativeBtn';
         }
 
         const systemInput = document.getElementById(systemInputId).value.trim();
@@ -526,17 +683,17 @@
             if (!coordData.name || !coordData.coords) throw new Error(`Could not find coordinates for "${systemInput}".`);
 
             loader.innerText = '2/3: Plotting the surrounding sphere...';
-            // Use our new helper function
             let spanshSystems = await fetchSpanshSphere(coordData.coords, 150);
 
             const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > 0 && sys.population > 0));
             if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
 
-            if (isMission) {
+            if (mode === 'mission') {
                 await handleMissionLogic(searchPool, loader, resultBox);
-            } else if (isTourism) {
-                // Notice we are now passing the initial radius input to handleTourismLogic
+            } else if (mode === 'tourism') {
                 await handleTourismLogic(searchPool, loader, resultBox, coordData, parseFloat(radiusInput)); 
+            } else if (mode === 'narrative') {
+                await handleNarrativeLogic(searchPool, loader, resultBox, coordData);
             } else {
                 await handleRandomLogic(searchPool, loader, resultBox);
             }
@@ -550,6 +707,9 @@
         }
     }
 
+    // --- Logic Blocks ---
+
+    // 1. Random Logic
     async function handleRandomLogic(searchPool, loader, resultBox) {
         const filterAllegiance = document.getElementById('filterAllegiance').value;
         const filterGovernment = document.getElementById('filterGovernment').value;
@@ -613,6 +773,7 @@
         throw new Error("No stations matched your exact filters. Try broadening the search.");
     }
 
+    // 2. Mission Logic
     async function handleMissionLogic(searchPool, loader, resultBox) {
         const prefType = document.getElementById('missionType').value;
         const stopsCount = Math.min(5, Math.max(1, parseInt(document.getElementById('missionStops').value) || 1));
@@ -628,7 +789,9 @@
         
         let selectedType = prefType;
         if (prefType === 'Any') {
-            const allTypes = ['Cargo', 'Smuggling', 'Freelance', 'Combat', 'Surface', 'Rescue', 'Salvage', 'Mining'];
+            const allTypes = Array.from(document.getElementById('missionType').options)
+                .map(o => o.value)
+                .filter(v => v !== 'Any' && !document.querySelector(`#missionType option[value="${v}"]`).disabled);
             selectedType = allTypes[Math.floor(Math.random() * allTypes.length)];
         }
 
@@ -681,7 +844,6 @@
         } else if (selectedType === 'Smuggling') {
             loader.innerText = `3/3: Searching the underworld for illicit opportunities...`;
             
-            // Common illicit goods in Elite Dangerous
             const illicitGoods = ['Narcotics', 'Personal Weapons', 'Battle Weapons', 'Slaves', 'Imperial Slaves', 'Tobacco', 'Bootleg Liquor', 'Combat Stabilisers', 'Nerve Agents', 'Landmines'];
 
             for (let i = 0; i < Math.min(searchPool.length, 12); i++) {
@@ -692,7 +854,6 @@
                 if (!sourceStationsData.stations) continue;
                 
                 const validSourceStations = sourceStationsData.stations.filter(s => {
-                    // Must have a market and not be a Fleet Carrier
                     if ((s.type || "").includes("Fleet Carrier") || !s.haveMarket) return false;
                     const gov = s.government || sourceSys.government || "";
                     return gov.includes('Anarchy') || gov.includes('Dictatorship');
@@ -700,7 +861,6 @@
                 
                 if (validSourceStations.length === 0) continue;
                 
-                // Check the market for illicit goods in stock
                 const sourceStation = validSourceStations[Math.floor(Math.random() * validSourceStations.length)];
                 const sourceMarketRes = await fetch(`https://www.edsm.net/api-system-v1/stations/market?systemName=${encodeURIComponent(sourceSys.name)}&stationName=${encodeURIComponent(sourceStation.name)}`);
                 const sourceMarketData = await sourceMarketRes.json();
@@ -711,7 +871,6 @@
                     if (availableIllicit.length > 0) {
                         const chosenCommodity = availableIllicit[Math.floor(Math.random() * availableIllicit.length)];
 
-                        // Now find a destination with a black market
                         for (let j = 0; j < Math.min(searchPool.length, 15); j++) {
                             if (i === j) continue; 
                             const destSys = searchPool[j];
@@ -782,6 +941,7 @@
         }
     }
 
+    // 3. Tourism Logic
     async function handleTourismLogic(searchPool, loader, resultBox, originCoordData, initialRadius) {
         const checkboxes = document.querySelectorAll('#tourismCheckboxes input[type="checkbox"]:checked');
         const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
@@ -795,7 +955,7 @@
         
         let currentRadius = initialRadius;
         let expandAttempts = 0;
-        const MAX_EXPANDS = 5; // Cap to prevent infinite loops (max 250ly extra)
+        const MAX_EXPANDS = 5; 
         let isExpandedSearch = false;
         
         let routeStops = [];
@@ -840,8 +1000,8 @@
                                     else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05 && isLandable) categoryMatch = 'Orbit';
                                     else if (!usedAnomalies.has('Rotation') && b.rotationalPeriod && Math.abs(b.rotationalPeriod) <= 0.05 && isLandable) categoryMatch = 'Rotation';
                                     else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300 && isLandable) categoryMatch = 'Micro';
-                                    else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 1500 && isLandable) categoryMatch = 'Inferno';
-                                    else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30 && isLandable) categoryMatch = 'Freeze';
+                                    else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
+                                    else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
                                     else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
                                     else if (!usedAnomalies.has('RingedRare') && b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')) categoryMatch = 'RingedRare';
                                 }
@@ -875,8 +1035,8 @@
                                 poolCopy.splice(i, 1);
                                 foundStop = true;
                                 currentReferenceSystem = sys;
-                                isExpandedSearch = false; // Reset flag
-                                expandAttempts = 0; // Reset attempts
+                                isExpandedSearch = false; 
+                                expandAttempts = 0; 
                                 break;
                             }
                         }
@@ -902,12 +1062,7 @@
                         if (currentType === 'Beacons') {
                             isValid = (type === "Tourist Beacon");
                         } else if (currentType === 'Luxury') {
-                            // Exclude grimy/restricted economies even if they are in a nice station
-                            const dirtyEcon = ["Refinery", "Industrial", "Extraction", "Military", "Prison Colony", "Colony", "Agriculture"];
-                            const isDirty = dirtyEcon.some(e => econ.includes(e));
-                            
-                            // Must be a Tourism economy OR a luxury station type, AND it cannot be dirty
-                            isValid = (econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus")) && !isDirty;
+                            isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
                         } else if (currentType === 'Adventure') {
                             isValid = st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
                         } else if (currentType === 'GrandTour') {
@@ -941,35 +1096,32 @@
                         poolCopy.splice(i, 1);
                         foundStop = true;
                         currentReferenceSystem = sys; 
-                        isExpandedSearch = false; // Reset flag
-                        expandAttempts = 0; // Reset attempts
+                        isExpandedSearch = false; 
+                        expandAttempts = 0; 
                         break; 
                     }
                 }
                 await new Promise(r => setTimeout(r, 800)); 
             }
 
-            // === THE NEW EXPANSION LOGIC ===
             if (!foundStop) {
                 if (allowExpand && expandAttempts < MAX_EXPANDS) {
                     expandAttempts++;
                     currentRadius += 50; 
-                    isExpandedSearch = true; // Mark that the NEXT stop we find was a result of expansion
+                    isExpandedSearch = true; 
                     loader.innerText = `Search exhausted. Expanding radius to ${currentRadius}Ly for waypoint ${step + 1}...`;
                     
                     let refCoords = currentReferenceSystem.coords || currentReferenceSystem;
-                    if (!refCoords.x) refCoords = originCoordData.coords; // Fallback to start if coords missing
+                    if (!refCoords.x) refCoords = originCoordData.coords; 
 
-                    // Fetch a larger sphere from our CURRENT location in the tour
                     let newSystems = await fetchSpanshSphere(refCoords, 200);
                     
-                    // Repopulate poolCopy with the newly expanded area
                     poolCopy = shuffleArray(newSystems.filter(sys => sys.distance <= currentRadius && sys.distance > 0 && sys.population > 0));
                     
-                    step--; // Decrease step so the loop retries finding THIS waypoint
+                    step--; 
                     continue;
                 } else {
-                    break; // Max expands reached, or user disabled expansion
+                    break; 
                 }
             }
         }
@@ -981,33 +1133,101 @@
     
         throw new Error(`Could not construct an itinerary with ${stopsCount} stops. Try increasing the base radius, selecting more packages, or turning on Auto-Expand.`);
     }
-    async function fetchSpanshSphere(coords, size = 150) {
-        const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                filters: {}, sort: [{ distance: { direction: "asc" } }], size: size,
-                reference_coords: { x: coords.x, y: coords.y, z: coords.z }
-            })
+
+    // 4. Narrative Logic
+    async function handleNarrativeLogic(searchPool, loader, resultBox, startSys) {
+        const length = parseInt(document.getElementById('narrativeLength').value) || 3;
+        const profile = document.getElementById('globalShipProfile').value;
+        
+        const possibleSteps = [
+            { type: 'Salvage', desc: "Locate and recover sensitive WOSC black box data from a signal source.", shipExclude: [] },
+            { type: 'Surface', desc: "Deploy SRV to a planetary settlement to extract target coordinates.", shipExclude: ['Hauler'] },
+            { type: 'Combat', desc: "Eliminate a pirate lord who intercepted the previous data packet.", shipExclude: ['Hauler', 'Explorer', 'Smuggler'] },
+            { type: 'Smuggling', desc: "Slip the recovered assets into a black market unnoticed.", shipExclude: ['Combat', 'Hauler', 'Explorer'] },
+            { type: 'Freelance', desc: "Meet with a local contact at a remote outpost to hand off the goods.", shipExclude: [] }
+        ];
+
+        let validSteps = possibleSteps.filter(s => !s.shipExclude.includes(profile));
+        if(validSteps.length === 0) validSteps = possibleSteps;
+
+        currentNarrativeData = [];
+        let poolCopy = [...searchPool];
+        
+        loader.innerText = `3/3: Drafting WOSC Campaign Chapters...`;
+
+        for(let i=0; i<length; i++) {
+            if(poolCopy.length === 0) break;
+            const stepTheme = validSteps[Math.floor(Math.random() * validSteps.length)];
+            let targetSys = poolCopy.pop();
+            
+            const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(targetSys.name)}`);
+            const stationData = await stationRes.json();
+            let targetLoc = "Deep Space Signal";
+            if(stationData.stations && stationData.stations.length > 0) {
+                const valid = stationData.stations.filter(s => !(s.type || "").includes("Fleet Carrier"));
+                if(valid.length > 0) targetLoc = valid[Math.floor(Math.random() * valid.length)].name;
+            }
+
+            currentNarrativeData.push({
+                chapter: i + 1,
+                theme: stepTheme.type,
+                desc: stepTheme.desc,
+                system: targetSys.name,
+                location: targetLoc
+            });
+        }
+
+        if(currentNarrativeData.length === 0) throw new Error("Could not find suitable systems for a campaign.");
+
+        currentChapterIndex = 0;
+        renderNarrativeUI(resultBox);
+    }
+
+    // --- Render Functions ---
+
+    function renderNarrativeUI(resultBox) {
+        resultBox.style.display = 'block';
+        let html = `
+            <div class="mission-title" style="color: var(--info); border-color: var(--info);">Campaign: Operation Maelstrom</div>
+            <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(139, 233, 253, 0.05); border-left-color: var(--info);">
+                "Commander, the Wasabi Orbital Social Club has a multi-stage operation for you. We need to keep this compartmentalized. You will receive instructions one chapter at a time. Do not proceed until the current objective is complete."
+            </div>
+            <div id="chapters-container">
+        `;
+
+        currentNarrativeData.forEach((ch, index) => {
+            html += `
+            <div class="chapter-container ${index === 0 ? 'active' : ''}" id="chapter-${index}">
+                <div class="cargo-route" style="border-color: var(--info); background-color: rgba(139, 233, 253, 0.05);">
+                    <div style="color: var(--info); font-weight: bold; margin-bottom: 8px;">CHAPTER ${ch.chapter}: ${ch.theme.toUpperCase()}</div>
+                    <div style="font-style: italic; color: #a5b4fc; margin-bottom: 15px;">"${ch.desc}"</div>
+                    
+                    <div class="result-item">
+                        <div class="result-label">Target System</div>
+                        <div class="result-value flex-val">${ch.system} <button class="copy-btn" onclick="copyToClipboard('${ch.system}', this)">📋</button></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Primary POI</div>
+                        <div class="result-value" style="color: #c9d1d9;">${ch.location}</div>
+                    </div>
+                </div>
+                ${index < currentNarrativeData.length - 1 ? 
+                  `<button class="next-chapter-btn" onclick="advanceChapter(${index})">Mark Complete & Decrypt Next Chapter</button>` : 
+                  `<div style="text-align:center; color: var(--success); font-weight: bold; margin-top: 15px;">END OF CAMPAIGN</div>`
+                }
+            </div>`;
         });
 
-        if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
-        const spanshData = await spanshRes.json();
-        let spanshSystems = spanshData.results || [];
-
-        if (spanshData.reference) {
-            for (let attempts = 0; attempts < 15; attempts++) {
-                await new Promise(r => setTimeout(r, 1000));
-                const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
-                const pollData = await pollRes.json();
-                if (pollData.status === 'ok' && pollData.results) {
-                    spanshSystems = pollData.results;
-                    break;
-                }
-            }
-        }
-        return spanshSystems;
+        html += `</div>`;
+        resultBox.innerHTML = html;
     }
+
+    function advanceChapter(currentIndex) {
+        document.getElementById(`chapter-${currentIndex}`).querySelector('.next-chapter-btn').style.display = 'none';
+        document.getElementById(`chapter-${currentIndex}`).style.opacity = '0.5';
+        document.getElementById(`chapter-${currentIndex + 1}`).classList.add('active');
+    }
+
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
         resultBox.innerHTML = `
             <div class="mission-title">Contract: Independent Cargo Run</div>
@@ -1156,7 +1376,6 @@
                 ? `<span style="color: #50fa7b; font-size: 0.7rem; margin-left: 8px; border: 1px solid #50fa7b; padding: 1px 4px; border-radius: 3px; vertical-align: text-bottom;">LANDABLE</span>` 
                 : '';
 
-            // Creates the badge if this stop triggered an expansion
             let expandBadge = stop.isExpanded 
                 ? `<span style="color: #ff5555; font-size: 0.7rem; margin-left: 8px; border: 1px solid #ff5555; background-color: rgba(255,85,85,0.1); padding: 1px 4px; border-radius: 3px; vertical-align: middle;">RADIUS EXPANDED</span>` 
                 : '';
@@ -1192,7 +1411,9 @@
         resultBox.innerHTML = html;
         resultBox.style.display = 'block';
     }
-</script>
 
+    // Initialize UI constraints on load
+    applyShipDirectives();
+</script>
 </body>
 </html>
