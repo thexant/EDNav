@@ -97,15 +97,20 @@
             font-size: 0.9rem;
         }
 
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border);
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
+				input[type="text"], input[type="number"], select {
+						width: 100%;
+						padding: 10px;
+						border: 1px solid var(--border);
+						background-color: var(--bg-color);
+						color: var(--text-main);
+						border-radius: 4px;
+						box-sizing: border-box;
+				}
+
+				select:focus {
+						outline: none;
+						border-color: var(--accent);
+				}
         
         input:focus {
             outline: none;
@@ -201,11 +206,48 @@
             <div class="hint">Keeps duplicate location names contextually tied to your system.</div>
         </div>
 
-        <div class="form-group">
+				<div class="form-group">
             <label for="radius">Radius (Ly) *</label>
             <input type="number" id="radius" placeholder="e.g., 50" min="1" max="100" value="50" required>
             <div class="hint">EDSM max radius is typically 100 Ly for sphere queries.</div>
         </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <label for="filterAllegiance">Allegiance</label>
+                <select id="filterAllegiance">
+                    <option value="">Any</option>
+                    <option value="Alliance">Alliance</option>
+                    <option value="Empire">Empire</option>
+                    <option value="Federation">Federation</option>
+                    <option value="Independent">Independent</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label for="filterEconomy">Economy</label>
+                <select id="filterEconomy">
+                    <option value="">Any</option>
+                    <option value="Agriculture">Agriculture</option>
+                    <option value="Extraction">Extraction</option>
+                    <option value="High Tech">High Tech</option>
+                    <option value="Industrial">Industrial</option>
+                    <option value="Military">Military</option>
+                    <option value="Refinery">Refinery</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="filterType">Location Type</label>
+            <select id="filterType">
+                <option value="">Any</option>
+                <option value="Orbital">Any Orbital Station</option>
+                <option value="Planetary">Any Planetary Site</option>
+                <option value="Outpost">Outpost (Small/Med Pads)</option>
+                <option value="Starport">Large Starport (Coriolis, Orbis, Ocellus)</option>
+            </select>
+        </div>
+        <button class="submit-btn" id="searchBtn" onclick="findRandomLocation()">Find Location</button>
 
         <button class="submit-btn" id="searchBtn" onclick="findRandomLocation()">Find Location</button>
         
@@ -240,6 +282,10 @@
 		async function findRandomLocation() {
         const systemInput = document.getElementById('systemName').value.trim();
         const radiusInput = document.getElementById('radius').value;
+        const filterAllegiance = document.getElementById('filterAllegiance').value;
+        const filterEconomy = document.getElementById('filterEconomy').value;
+        const filterType = document.getElementById('filterType').value;
+
         const btn = document.getElementById('searchBtn');
         const loader = document.getElementById('loader');
         const resultBox = document.getElementById('result-box');
@@ -255,7 +301,7 @@
         resultBox.innerHTML = '';
 
         try {
-            // Step 1: EDSM for Coordinates (GET Request, avoids CORS)
+            // Step 1: EDSM for Coordinates
             loader.innerText = '1/3: Getting jump coordinates from EDSM...';
             const coordUrl = `https://www.edsm.net/api-v1/system?systemName=${encodeURIComponent(systemInput)}&showCoordinates=1`;
             const coordRes = await fetch(coordUrl);
@@ -265,13 +311,12 @@
                 throw new Error(`Could not find coordinates for "${systemInput}". Check spelling.`);
             }
 
-            // Step 2: Spansh for Radius Search (POST Request)
-            // Routed through a CORS proxy to bypass browser security blocks on file:///
+            // Step 2: Spansh for Radius Search 
             loader.innerText = '2/3: Asking Spansh to plot the surrounding sphere...';
             const spanshPayload = {
                 filters: {}, 
                 sort: [{ distance: { direction: "asc" } }],
-                size: 200, 
+                size: 300, // Pulled a bit larger to ensure we have enough to filter
                 reference_coords: {
                     x: coordData.coords.x,
                     y: coordData.coords.y,
@@ -279,8 +324,7 @@
                 }
             };
 
-            const proxyUrl = "https://corsproxy.io/?";
-            const spanshRes = await fetch(proxyUrl + "https://spansh.co.uk/api/systems/search", {
+            const spanshRes = await fetch("https://spansh.co.uk/api/systems/search", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(spanshPayload)
@@ -294,7 +338,7 @@
                 while (attempts < 15) {
                     await new Promise(r => setTimeout(r, 1000));
                     loader.innerText = `2/3: Waiting for Spansh job queue... (Attempt ${attempts + 1})`;
-                    const pollRes = await fetch(proxyUrl + `https://spansh.co.uk/api/results/${spanshData.reference}`);
+                    const pollRes = await fetch(`https://spansh.co.uk/api/results/${spanshData.reference}`);
                     const pollData = await pollRes.json();
                     
                     if (pollData.status === 'ok' && pollData.results) {
@@ -311,38 +355,70 @@
                 throw new Error("Spansh returned no data. The API might be busy.");
             }
 
-            // Filter Spansh results for our specific radius and population
+            // FILTER STAGE 1: Spansh System-Level Filters
             const maxDist = parseFloat(radiusInput);
             const validSystems = spanshSystems.filter(sys => sys.distance <= maxDist);
-            const populated = validSystems.filter(sys => sys.population && sys.population > 0);
+            let populated = validSystems.filter(sys => sys.population && sys.population > 0);
             
-            // Prefer populated systems so we don't scan dead rocks
-            let searchPool = populated.length > 0 ? populated : validSystems;
+            // Apply Allegiance Filter
+            if (filterAllegiance) {
+                populated = populated.filter(sys => sys.allegiance === filterAllegiance);
+            }
+
+            let searchPool = populated.length > 0 ? populated : [];
             
             if (searchPool.length === 0) {
-                throw new Error(`No systems found within ${maxDist}Ly.`);
+                throw new Error(`No populated systems found matching your system filters within ${maxDist}Ly.`);
             }
 
             searchPool = shuffleArray(searchPool);
 
-            // Step 3: EDSM for Station Data (GET Request, avoids CORS)
+            // Step 3: EDSM for Station Data
             let foundLocation = null;
             let targetSystem = null;
-            const maxAttempts = Math.min(searchPool.length, 5); 
+            const maxAttempts = Math.min(searchPool.length, 10); // Bumped to 10 for harder filter criteria
 
             for (let i = 0; i < maxAttempts; i++) {
                 const sys = searchPool[i];
                 const sysName = sys.name || "Unknown System";
-                loader.innerText = `3/3: Checking Spansh hit ${i+1}/${maxAttempts} against EDSM database: ${sysName}...`;
+                loader.innerText = `3/3: Checking EDSM database for exact matches in ${sysName} (${i+1}/${maxAttempts})...`;
 
                 const stationUrl = `https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sysName)}`;
                 const stationRes = await fetch(stationUrl);
                 const stationData = await stationRes.json();
 
                 if (stationData.stations && stationData.stations.length > 0) {
-                    foundLocation = stationData.stations[Math.floor(Math.random() * stationData.stations.length)];
-                    targetSystem = { name: sysName, distance: sys.distance };
-                    break;
+                    
+                    // FILTER STAGE 2: EDSM Station-Level Filters
+                    const validStations = stationData.stations.filter(station => {
+                        const type = station.type || "";
+                        const economy = station.economy || "";
+
+                        // Rule 1: No Fleet Carriers
+                        if (type.includes("Fleet Carrier")) return false;
+
+                        // Rule 2: Economy Match
+                        if (filterEconomy && !economy.includes(filterEconomy)) return false;
+
+                        // Rule 3: Type Match
+                        if (filterType) {
+                            const isPlanetary = station.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
+                            
+                            if (filterType === "Orbital" && isPlanetary) return false;
+                            if (filterType === "Planetary" && !isPlanetary) return false;
+                            if (filterType === "Outpost" && !type.includes("Outpost")) return false;
+                            if (filterType === "Starport" && !(type.includes("Coriolis") || type.includes("Orbis") || type.includes("Ocellus"))) return false;
+                        }
+
+                        return true;
+                    });
+
+                    // If a station passed all rules, pick it and exit!
+                    if (validStations.length > 0) {
+                        foundLocation = validStations[Math.floor(Math.random() * validStations.length)];
+                        targetSystem = { name: sysName, distance: sys.distance };
+                        break;
+                    }
                 }
 
                 await new Promise(r => setTimeout(r, 1000)); // Polite delay
@@ -351,7 +427,7 @@
             if (foundLocation) {
                 displayResult(targetSystem, foundLocation);
             } else {
-                throw new Error("Checked 5 populated systems from Spansh, but EDSM had no station data for them. Click 'Find Location' to re-roll.");
+                throw new Error("Checked 10 systems, but none had a station that matched all your exact filters. Try broadening your search or clicking 'Find Location' to re-roll.");
             }
 
         } catch (error) {
