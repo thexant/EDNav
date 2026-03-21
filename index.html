@@ -245,6 +245,7 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('random')">Random Location</button>
         <button class="tab" onclick="switchTab('mission')">Mission Board</button>
+        <button class="tab" onclick="switchTab('tourism')">VIP Tourism</button>
     </div>
 
     <div id="mode-random" class="mode-content active">
@@ -347,6 +348,7 @@
             <select id="missionType">
                 <option value="Any">Any Available Activity</option>
                 <option value="Cargo">Cargo Trade Route (Single Route Only)</option>
+                <option value="Smuggling">Covert Ops / Smuggling (Single Route Only)</option>
                 <option value="Combat">Combat Patrol / Mercenary</option>
                 <option value="Freelance">Freelance / Board Hopping</option>
                 <option value="Mining">Mining Expedition</option>
@@ -361,14 +363,48 @@
         <div id="loader-mission" class="loader">Contacting local faction reps...</div>
         <div id="result-box-mission" class="result-box"></div>
     </div>
+
+    <div id="mode-tourism" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Arrange exclusive itineraries for high-paying VIP passengers.</p>
+        
+        <div class="form-group">
+            <label for="tourismSystem">Current System *</label>
+            <input type="text" id="tourismSystem" placeholder="Where is the VIP boarding?" required>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label for="tourismRadius">Travel Radius (Ly) *</label>
+                <input type="number" id="tourismRadius" value="80" min="1" max="150" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="tourismStops">Itinerary Stops *</label>
+                <input type="number" id="tourismStops" value="3" min="2" max="5" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="tourismType">Tour Package</label>
+            <select id="tourismType">
+                <option value="GrandTour">The Grand Tour (Diverse Economies)</option>
+                <option value="Luxury">Luxury Resorts (Tourism Stations & Wealthy Ports)</option>
+                <option value="Adventure">Adventure Safari (Planetary & Outposts)</option>
+            </select>
+        </div>
+
+        <button class="submit-btn" id="tourismBtn" onclick="executeSearch('tourism')" style="background-color: #bd93f9; color: #fff;">Generate Itinerary</button>
+        
+        <div id="loader-tourism" class="loader">Consulting galactic travel guides...</div>
+        <div id="result-box-tourism" class="result-box"></div>
+    </div>
 </div>
 
 <script>
-    // Disable stops input if Cargo is selected
+    // Disable stops input if Cargo or Smuggling is selected
     document.getElementById('missionType').addEventListener('change', function() {
         const stopsInput = document.getElementById('missionStops');
         const stopsGroup = document.getElementById('stopsGroup');
-        if (this.value === 'Cargo') {
+        if (this.value === 'Cargo' || this.value === 'Smuggling') {
             stopsInput.value = 1;
             stopsInput.disabled = true;
             stopsGroup.style.opacity = '0.5';
@@ -416,9 +452,25 @@
 
     async function executeSearch(mode) {
         const isMission = mode === 'mission';
-        const systemInput = document.getElementById(isMission ? 'missionSystem' : 'systemName').value.trim();
-        const radiusInput = document.getElementById(isMission ? 'missionRadius' : 'radius').value;
-        const btn = document.getElementById(isMission ? 'missionBtn' : 'searchBtn');
+        const isTourism = mode === 'tourism';
+        
+        let systemInputId = 'systemName';
+        let radiusInputId = 'radius';
+        let btnId = 'searchBtn';
+        
+        if (isMission) {
+            systemInputId = 'missionSystem';
+            radiusInputId = 'missionRadius';
+            btnId = 'missionBtn';
+        } else if (isTourism) {
+            systemInputId = 'tourismSystem';
+            radiusInputId = 'tourismRadius';
+            btnId = 'tourismBtn';
+        }
+
+        const systemInput = document.getElementById(systemInputId).value.trim();
+        const radiusInput = document.getElementById(radiusInputId).value;
+        const btn = document.getElementById(btnId);
         const loader = document.getElementById(`loader-${mode}`);
         const resultBox = document.getElementById(`result-box-${mode}`);
 
@@ -469,6 +521,8 @@
 
             if (isMission) {
                 await handleMissionLogic(searchPool, loader, resultBox);
+            } else if (isTourism) {
+                await handleTourismLogic(searchPool, loader, resultBox);
             } else {
                 await handleRandomLogic(searchPool, loader, resultBox);
             }
@@ -560,12 +614,11 @@
         
         let selectedType = prefType;
         if (prefType === 'Any') {
-            const allTypes = ['Cargo', 'Freelance', 'Combat', 'Surface', 'Rescue', 'Salvage', 'Mining'];
+            const allTypes = ['Cargo', 'Smuggling', 'Freelance', 'Combat', 'Surface', 'Rescue', 'Salvage', 'Mining'];
             selectedType = allTypes[Math.floor(Math.random() * allTypes.length)];
         }
 
         if (selectedType === 'Cargo') {
-            // CARGO LOGIC (Unchanged, remains a strict 1-stop supply/demand link)
             loader.innerText = `3/3: Searching local markets for profitable trade routes...`;
             for (let i = 0; i < Math.min(searchPool.length, 8); i++) {
                 const sourceSys = searchPool[i];
@@ -611,8 +664,50 @@
                 }
             }
             throw new Error("Could not find a matching supply/demand route in the current radius.");
-        } 
-        else {
+        } else if (selectedType === 'Smuggling') {
+            loader.innerText = `3/3: Searching the underworld for illicit opportunities...`;
+            for (let i = 0; i < Math.min(searchPool.length, 12); i++) {
+                const sourceSys = searchPool[i];
+                const sourceStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sourceSys.name)}`);
+                const sourceStationsData = await sourceStationsRes.json();
+                
+                if (!sourceStationsData.stations) continue;
+                
+                // Seek Anarchy/Dictatorship systems, or shady outposts for flavor
+                const validSourceStations = sourceStationsData.stations.filter(s => {
+                    if ((s.type || "").includes("Fleet Carrier")) return false;
+                    const gov = s.government || sourceSys.government || "";
+                    return gov.includes('Anarchy') || gov.includes('Dictatorship') || s.type === 'Outpost';
+                });
+                
+                if (validSourceStations.length === 0) continue;
+                const sourceStation = validSourceStations[Math.floor(Math.random() * validSourceStations.length)];
+
+                for (let j = 0; j < Math.min(searchPool.length, 15); j++) {
+                    if (i === j) continue; 
+                    const destSys = searchPool[j];
+                    const destStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(destSys.name)}`);
+                    const destStationsData = await destStationsRes.json();
+                    
+                    if (!destStationsData.stations) continue;
+                    
+                    // Destination must have a Black Market according to EDSM's services list
+                    const validDestStations = destStationsData.stations.filter(s => {
+                        if ((s.type || "").includes("Fleet Carrier")) return false;
+                        return s.otherServices && s.otherServices.includes("Black Market");
+                    });
+
+                    if (validDestStations.length > 0) {
+                        const destStation = validDestStations[Math.floor(Math.random() * validDestStations.length)];
+                        const routeDistance = calcDistance(sourceSys, destSys);
+                        renderSmugglingBriefing(sourceSys, sourceStation, destSys, destStation, routeDistance, resultBox);
+                        return;
+                    }
+                    await new Promise(r => setTimeout(r, 400));
+                }
+            }
+            throw new Error("Could not plot a covert route. Ensure your radius includes Anarchy systems and Black Markets.");
+        } else {
             // CHAINING LOGIC FOR ALL OTHER TYPES
             const archetype = archetypes.find(a => a.id === selectedType);
             let routeStops = [];
@@ -642,11 +737,11 @@
                     if (validStations.length > 0) {
                         const loc = validStations[Math.floor(Math.random() * validStations.length)];
                         routeStops.push({ system: sys, location: loc });
-                        poolCopy.splice(i, 1); // Remove so we don't visit the same system twice
-                        i--; // Adjust index
+                        poolCopy.splice(i, 1); 
+                        i--; 
                     }
                 }
-                await new Promise(r => setTimeout(r, 800)); // Rate limit buffer
+                await new Promise(r => setTimeout(r, 800)); 
             }
 
             if (routeStops.length > 0) {
@@ -656,6 +751,62 @@
 
             throw new Error(`Could not generate a ${selectedType} contract in this radius. Try widening your search or reducing stops.`);
         }
+    }
+
+    async function handleTourismLogic(searchPool, loader, resultBox) {
+        const tourType = document.getElementById('tourismType').value;
+        const stopsCount = Math.min(5, Math.max(2, parseInt(document.getElementById('tourismStops').value) || 3));
+        
+        let routeStops = [];
+        let poolCopy = [...searchPool];
+        let usedEconomies = new Set();
+
+        for (let i = 0; i < poolCopy.length; i++) {
+            if (routeStops.length >= stopsCount) break;
+
+            const sys = poolCopy[i];
+            loader.innerText = `3/3: Booking itinerary for waypoint ${routeStops.length + 1}...`;
+            const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+            const stationData = await stationRes.json();
+
+            if (stationData.stations) {
+                const validStations = stationData.stations.filter(st => {
+                    const type = st.type || "";
+                    const econ = st.economy || "";
+                    if (type.includes("Fleet Carrier")) return false;
+                    
+                    if (tourType === 'Luxury') {
+                        // Strict Tourism or wealthy/luxury station geometries
+                        return econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
+                    } else if (tourType === 'Adventure') {
+                        // Planetary or outposts only for that rugged feel
+                        return st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
+                    } else if (tourType === 'GrandTour') {
+                        // Diverse economies constraint
+                        if (!econ || econ === "None") return false;
+                        if (usedEconomies.has(econ)) return false; 
+                        return true;
+                    }
+                    return true;
+                });
+
+                if (validStations.length > 0) {
+                    const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                    routeStops.push({ system: sys, location: loc });
+                    if (loc.economy) usedEconomies.add(loc.economy);
+                    poolCopy.splice(i, 1);
+                    i--; 
+                }
+            }
+            await new Promise(r => setTimeout(r, 800)); 
+        }
+
+        if (routeStops.length > 0) {
+            renderTourismBriefing(routeStops, tourType, resultBox);
+            return;
+        }
+
+        throw new Error(`Could not construct a ${tourType} itinerary with ${stopsCount} stops. Try increasing the radius or lowering stops.`);
     }
 
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
@@ -684,6 +835,37 @@
                     </div>
                 </div>
                 <div class="result-item"><div class="result-label">Destination Market</div><div class="result-value" style="color: #c9d1d9;">${destStation.name}</div></div>
+            </div>
+        `;
+        resultBox.style.display = 'block';
+    }
+
+    function renderSmugglingBriefing(srcSys, srcStation, destSys, destStation, routeDistance, resultBox) {
+        resultBox.innerHTML = `
+            <div class="mission-title" style="color: #ff5555; border-bottom-color: #ff5555;">Contract: Covert Operations</div>
+            <div class="mission-brief" style="color: #ffb86c; background-color: rgba(255, 184, 108, 0.05); border-left-color: #ffb86c;">"Keep this off the main comms, Commander. We need sensitive cargo moved quietly. Procure illicit goods from our contact, then slip it into the destination's black market. Avoid system authority scans at all costs."</div>
+            
+            <div class="cargo-route" style="border-color: #ff5555; background-color: rgba(255, 85, 85, 0.05);">
+                <div class="result-item"><div class="result-label" style="color: #ff5555;">Step 1: Procure Illicit Goods</div><div class="result-value">Narcotics, Weapons, or Slaves <span style="color:var(--text-main); font-size:0.9rem; font-weight:normal;">(Local supply permitting)</span></div></div>
+                <div class="result-item">
+                    <div class="result-label">Shady Supplier System</div>
+                    <div class="result-value flex-val">${srcSys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${srcSys.distance.toFixed(2)} Ly away)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${srcSys.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item"><div class="result-label">Supplier Location</div><div class="result-value" style="color: #c9d1d9;">${srcStation.name} <span style="color: #ffb86c; font-size: 0.85rem; font-weight: normal;">[${srcStation.government || 'Anarchy'} / ${srcStation.type || 'Unknown'}]</span></div></div>
+            </div>
+
+            <div style="text-align: center; color: #ff5555; margin: 10px 0; font-weight: bold;">▼ SMUGGLE TO ▼</div>
+
+            <div class="cargo-route" style="margin-top: 0; border-color: #ff5555; background-color: rgba(255, 85, 85, 0.05);">
+                <div class="result-item">
+                    <div class="result-label">Target System</div>
+                    <div class="result-value flex-val">${destSys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${routeDistance.toFixed(2)} Ly from source)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${destSys.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item"><div class="result-label">Fencing Location</div><div class="result-value" style="color: #c9d1d9;">${destStation.name} <span style="color: #ff5555; font-size: 0.85rem;">[Black Market Confirmed]</span></div></div>
             </div>
         `;
         resultBox.style.display = 'block';
@@ -729,6 +911,45 @@
                     </div>
                 </div>
                 <div class="result-item"><div class="result-label">Staging Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(${stop.location.type || 'Unknown'})</span></div></div>
+            </div>
+            `;
+        });
+
+        resultBox.innerHTML = html;
+        resultBox.style.display = 'block';
+    }
+
+    function renderTourismBriefing(routeStops, type, resultBox) {
+        let title = "";
+        let baseBriefing = "";
+
+        if (type === 'GrandTour') {
+            title = "Charter: The Grand Tour";
+            baseBriefing = "Our client is a wealthy eccentric wanting to experience the full spectrum of galactic economies. Ensure their comfort as we jump between these diverse locations.";
+        } else if (type === 'Luxury') {
+            title = "Charter: Luxury Resort Circuit";
+            baseBriefing = "A high-net-worth VIP has chartered your vessel for a tour of premium tourist destinations and high-end orbital facilities. Keep the ride smooth and avoid interdictions.";
+        } else if (type === 'Adventure') {
+            title = "Charter: Adventure Safari";
+            baseBriefing = "We have thrill-seekers on board. They want to see the rugged frontier. Take them to these remote outposts and planetary settlements. Danger is part of the package.";
+        } 
+
+        let html = `
+            <div class="mission-title" style="color: #bd93f9; border-bottom-color: #bd93f9;">${title}</div>
+            <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(189, 147, 249, 0.05); border-left-color: #bd93f9;">"Passenger Manifest Updated. ${baseBriefing}"</div>
+        `;
+
+        routeStops.forEach((stop, index) => {
+            html += `
+            <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: #6272a4; background-color: rgba(98, 114, 164, 0.05);">
+                <div style="color: #bd93f9; font-size: 0.8rem; margin-bottom: 5px; font-weight: bold;">DESTINATION ${index + 1}</div>
+                <div class="result-item">
+                    <div class="result-label">System</div>
+                    <div class="result-value flex-val">${stop.system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${stop.system.distance.toFixed(2)} Ly from start)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${stop.system.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item"><div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal;">[${stop.location.economy || 'Unknown'} Economy]</span></div></div>
             </div>
             `;
         });
