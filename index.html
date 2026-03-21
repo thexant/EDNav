@@ -779,7 +779,7 @@
                         const anomalies = bodyData.bodies.filter(b => {
                             if (b.type === 'Star') return false; 
                             return (b.gravity && b.gravity > 2.5) || 
-                                   (b.orbitalPeriod && b.orbitalPeriod < 1.0) || 
+                                   (b.orbitalPeriod && b.orbitalPeriod < 0.25) || 
                                    (b.surfaceTemperature && b.surfaceTemperature > 1500) ||
                                    (b.surfaceTemperature && b.surfaceTemperature < 30);
                         });
