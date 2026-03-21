@@ -797,7 +797,7 @@
         }
     }
 
-async function handleTourismLogic(searchPool, loader, resultBox, originCoordData) {
+    async function handleTourismLogic(searchPool, loader, resultBox, originCoordData) {
         const checkboxes = document.querySelectorAll('#tourismCheckboxes input[type="checkbox"]:checked');
         const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
 
@@ -809,24 +809,27 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
         
         let routeStops = [];
         let poolCopy = [...searchPool];
-        let usedEconomies = new Set();
+        
         let usedAnomalies = new Set();
-        // Start the route at the origin system
+        let usedStationProfiles = new Set(); 
+        let usedGrandTourEconomies = new Set(); 
+        
         let currentReferenceSystem = originCoordData; 
     
         for (let step = 0; step < stopsCount; step++) {
             if (poolCopy.length === 0) break;
 
-            // Sort the remaining pool by distance to the CURRENT reference system (nearest neighbor)
             poolCopy.sort((a, b) => calcDistance(currentReferenceSystem, a) - calcDistance(currentReferenceSystem, b));
-
             let foundStop = false;
 
             for (let i = 0; i < poolCopy.length; i++) {
                 const sys = poolCopy[i];
                 let currentType = selectedTypes[Math.floor(Math.random() * selectedTypes.length)];
-                const legDist = calcDistance(currentReferenceSystem, sys); // Calculate the jump distance
+                const legDist = calcDistance(currentReferenceSystem, sys); 
         
+                // ==========================================
+                // 1. ANOMALY LOGIC 
+                // ==========================================
                 if (currentType === 'Anomalies') {
                     loader.innerText = `3/3: Scanning ${sys.name} for anomalies (Waypoint ${step + 1})...`;
                     try {
@@ -837,28 +840,29 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
                             const anomalies = bodyData.bodies.filter(b => {
                                 const isStar = b.type === 'Star';
                                 const isPlanet = b.type === 'Planet';
+                                const isLandable = b.isLandable === true;
                                 let categoryMatch = null;
                                 
-                                // 1. Rare Star Types
                                 if (isStar && !usedAnomalies.has('RareStar')) {
-                                    if (b.subType === 'Black Hole' || b.subType === 'Neutron Star' || b.subType === 'Wolf-Rayet Star') {
-                                        categoryMatch = 'RareStar';
-                                    }
+                                    if (b.subType === 'Black Hole' || b.subType === 'Neutron Star' || b.subType === 'Wolf-Rayet Star') categoryMatch = 'RareStar';
                                 }
                                 
-                                // 2. Extreme Planetary Conditions
                                 if (isPlanet) {
-                                    if (!usedAnomalies.has('Gravity') && b.gravity && b.gravity >= 5.0) categoryMatch = 'Gravity';
-                                    else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05) categoryMatch = 'Orbit';
+                                    // Forced Landable Anomalies
+                                    if (!usedAnomalies.has('Gravity') && b.gravity && b.gravity >= 5.0 && isLandable) categoryMatch = 'Gravity';
+                                    else if (!usedAnomalies.has('Orbit') && b.orbitalPeriod && b.orbitalPeriod <= 0.05 && isLandable) categoryMatch = 'Orbit';
+                                    else if (!usedAnomalies.has('Rotation') && b.rotationalPeriod && Math.abs(b.rotationalPeriod) <= 0.05 && isLandable) categoryMatch = 'Rotation';
+                                    else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300 && isLandable) categoryMatch = 'Micro';
+                                    
+                                    // Visual/Orbital Anomalies (Not necessarily landable)
                                     else if (!usedAnomalies.has('Inferno') && b.surfaceTemperature && b.surfaceTemperature >= 2500) categoryMatch = 'Inferno';
                                     else if (!usedAnomalies.has('Freeze') && b.surfaceTemperature && b.surfaceTemperature <= 30) categoryMatch = 'Freeze';
                                     else if (!usedAnomalies.has('Eccentric') && b.eccentricity && b.eccentricity >= 0.9) categoryMatch = 'Eccentric';
-                                    else if (!usedAnomalies.has('Micro') && b.radius && b.radius <= 300) categoryMatch = 'Micro';
                                     else if (!usedAnomalies.has('RingedRare') && b.rings && b.rings.length > 0 && (b.subType === 'Earth Like World' || b.subType === 'Ammonia world')) categoryMatch = 'RingedRare';
                                 }
 
                                 if (categoryMatch) {
-                                    b.matchedCategory = categoryMatch; // Tag the body with its category
+                                    b.matchedCategory = categoryMatch; 
                                     return true;
                                 }
                                 return false;
@@ -868,28 +872,23 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
                                 const loc = anomalies[Math.floor(Math.random() * anomalies.length)];
                                 let reason = "Interesting Astronomical POI";
                                 
-                                if (loc.matchedCategory === 'RareStar') {
-                                    reason = `Rare Stellar Body (${loc.subType})`;
-                                } else if (loc.matchedCategory === 'Gravity') {
-                                    reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
-                                } else if (loc.matchedCategory === 'Orbit') {
+                                if (loc.matchedCategory === 'RareStar') reason = `Rare Stellar Body (${loc.subType})`;
+                                else if (loc.matchedCategory === 'Gravity') reason = `Crushing Gravity (${loc.gravity.toFixed(2)}G)`;
+                                else if (loc.matchedCategory === 'Orbit') {
                                     const orbitMins = loc.orbitalPeriod * 1440;
                                     reason = orbitMins < 60 ? `Whip Orbit (${orbitMins.toFixed(0)} mins)` : `Fast Orbit (${(loc.orbitalPeriod * 24).toFixed(1)} hrs)`;
-                                } else if (loc.matchedCategory === 'Inferno') {
-                                    reason = `Inferno World (${loc.surfaceTemperature}K)`;
-                                } else if (loc.matchedCategory === 'Freeze') {
-                                    reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
-                                } else if (loc.matchedCategory === 'Eccentric') {
-                                    reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
-                                } else if (loc.matchedCategory === 'Micro') {
-                                    reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
-                                } else if (loc.matchedCategory === 'RingedRare') {
-                                    reason = `Ringed Rare World (${loc.subType})`;
                                 }
+                                else if (loc.matchedCategory === 'Rotation') {
+                                    const rotMins = Math.abs(loc.rotationalPeriod) * 1440;
+                                    reason = rotMins < 60 ? `Dizzying Spin (${rotMins.toFixed(0)} mins)` : `Fast Day/Night (${(Math.abs(loc.rotationalPeriod) * 24).toFixed(1)} hrs)`;
+                                }
+                                else if (loc.matchedCategory === 'Inferno') reason = `Inferno World (${loc.surfaceTemperature}K)`;
+                                else if (loc.matchedCategory === 'Freeze') reason = `Absolute Zero (${loc.surfaceTemperature}K)`;
+                                else if (loc.matchedCategory === 'Eccentric') reason = `Extreme Elliptical Orbit (e=${loc.eccentricity.toFixed(2)})`;
+                                else if (loc.matchedCategory === 'Micro') reason = `Micro-Planet (${loc.radius.toFixed(0)}km radius)`;
+                                else if (loc.matchedCategory === 'RingedRare') reason = `Ringed Rare World (${loc.subType})`;
         
-                                // Mark this anomaly type as used for this itinerary
                                 usedAnomalies.add(loc.matchedCategory);
-
                                 routeStops.push({ system: sys, location: loc, anomalyReason: reason, isBody: true, stopType: currentType, legDistance: legDist });
                                 poolCopy.splice(i, 1);
                                 foundStop = true;
@@ -904,45 +903,62 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
                     continue;
                 }
         
-                // STANDARD STATION LOGIC
+                // ==========================================
+                // 2. STANDARD STATION LOGIC 
+                // ==========================================
                 loader.innerText = `3/3: Booking itinerary for waypoint ${step + 1} (${sys.name})...`;
                 const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
                 const stationData = await stationRes.json();
         
                 if (stationData.stations) {
                     const validStations = stationData.stations.filter(st => {
-                        const type = st.type || "";
-                        const econ = st.economy || "";
+                        const type = st.type || "Unknown";
+                        const econ = st.economy || "Unknown";
                         if (type.includes("Fleet Carrier")) return false;
                         
+                        let isValid = false;
+
                         if (currentType === 'Beacons') {
-                            return type === "Tourist Beacon";
+                            isValid = (type === "Tourist Beacon");
                         } else if (currentType === 'Luxury') {
-                            return econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
+                            isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
                         } else if (currentType === 'Adventure') {
-                            return st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
+                            isValid = st.isPlanetary || type.includes("Planetary") || type.includes("Outpost") || type.includes("Settlement");
                         } else if (currentType === 'GrandTour') {
-                            if (!econ || econ === "None") return false;
-                            if (usedEconomies.has(econ)) return false; 
-                            return true;
+                            isValid = (econ && econ !== "None" && econ !== "Unknown");
+                            if (isValid && usedGrandTourEconomies.has(econ)) return false; 
                         }
+        
+                        if (!isValid) return false;
+
+                        if (currentType !== 'Beacons') {
+                            const profile = `${type}-${econ}`; 
+                            if (usedStationProfiles.has(profile)) return false;
+                            
+                            st.profileTag = profile;
+                            if (currentType === 'GrandTour') st.econTag = econ;
+                        }
+
                         return true;
                     });
         
                     if (validStations.length > 0) {
                         const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                        
+                        if (loc.profileTag) usedStationProfiles.add(loc.profileTag);
+                        if (loc.econTag) usedGrandTourEconomies.add(loc.econTag);
+
                         routeStops.push({ system: sys, location: loc, stopType: currentType, legDistance: legDist });
-                        if (loc.economy) usedEconomies.add(loc.economy);
                         poolCopy.splice(i, 1);
                         foundStop = true;
-                        currentReferenceSystem = sys; // Update reference for the next step
+                        currentReferenceSystem = sys; 
                         break; 
                     }
                 }
                 await new Promise(r => setTimeout(r, 800)); 
             }
 
-            if (!foundStop) break; // If we scanned the whole remaining pool and found nothing, stop building
+            if (!foundStop) break; 
         }
     
         if (routeStops.length > 0) {
@@ -950,7 +966,7 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
             return;
         }
     
-        throw new Error(`Could not construct an itinerary with ${stopsCount} stops using the selected packages. Try increasing the radius.`);
+        throw new Error(`Could not construct an itinerary with ${stopsCount} stops using the selected packages. Try increasing the radius or selecting more packages.`);
     }
 
     function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
@@ -1063,7 +1079,7 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
         resultBox.style.display = 'block';
     }
 
-function renderTourismBriefing(routeStops, selectedTypes, resultBox) {
+    function renderTourismBriefing(routeStops, selectedTypes, resultBox) {
         let title = "";
         let baseBriefing = "";
         const isMixed = selectedTypes.length > 1;
@@ -1072,7 +1088,7 @@ function renderTourismBriefing(routeStops, selectedTypes, resultBox) {
             title = "Charter: Custom Galaxy Tour";
             baseBriefing = "Our passengers are looking for a highly varied experience. We've plotted a customized eclectic course through your selected itinerary packages.";
         } else {
-            const type = selectedTypes[0]; // Only one was checked
+            const type = selectedTypes[0]; 
             if (type === 'GrandTour') {
                 title = "Charter: The Grand Tour";
                 baseBriefing = "Our passengers want to experience the full spectrum of galactic economies. Plotting a course through these diverse inhabited locations.";
@@ -1098,13 +1114,16 @@ function renderTourismBriefing(routeStops, selectedTypes, resultBox) {
 
         routeStops.forEach((stop, index) => {
             let locInfo = "";
+            let landableTag = stop.location.isLandable || stop.location.isPlanetary || (stop.location.type || "").includes("Planetary") || (stop.location.type || "").includes("Settlement") 
+                ? `<span style="color: #50fa7b; font-size: 0.7rem; margin-left: 8px; border: 1px solid #50fa7b; padding: 1px 4px; border-radius: 3px; vertical-align: text-bottom;">LANDABLE</span>` 
+                : '';
+
             if (stop.isBody) {
-                locInfo = `<div class="result-label">Target Body</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #ffb86c; font-weight: normal;">[${stop.anomalyReason}]</span></div>`;
+                locInfo = `<div class="result-label">Target Body</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name}${landableTag} <span style="font-size: 0.85rem; color: #ffb86c; font-weight: normal; margin-left: 6px;">[${stop.anomalyReason}]</span></div>`;
             } else {
-                locInfo = `<div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal;">[${stop.location.economy || stop.location.type || 'Unknown'}]</span></div>`;
+                locInfo = `<div class="result-label">Sightseeing Location</div><div class="result-value" style="color: #c9d1d9;">${stop.location.name}${landableTag} <span style="font-size: 0.85rem; color: #f1fa8c; font-weight: normal; margin-left: 6px;">[${stop.location.economy || stop.location.type || 'Unknown'}]</span></div>`;
             }
 
-            // Show the specific stop type if multiple boxes were checked
             let stopSubTitle = "";
             if (isMixed) {
                  stopSubTitle = `<div style="color: #8be9fd; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">[ ${stop.stopType} Stop ]</div>`;
@@ -1118,7 +1137,7 @@ function renderTourismBriefing(routeStops, selectedTypes, resultBox) {
                 </div>
                 <div class="result-item">
                     <div class="result-label">System</div>
-                    <div class="result-value flex-val">${stop.system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${stop.system.distance.toFixed(2)} Ly from start)</span>
+                    <div class="result-value flex-val">${stop.system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${stop.legDistance.toFixed(2)} Ly jump)</span>
                         <button class="copy-btn" onclick="copyToClipboard('${stop.system.name}', this)" title="Copy System Name">📋</button>
                     </div>
                 </div>
