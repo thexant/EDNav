@@ -306,13 +306,13 @@
         </div>
 
         <div class="form-group">
-            <label for="missionType">Contract Preference</label>
+            <label for="missionType">Activity Preference</label>
             <select id="missionType">
-                <option value="Any">Any Available Contract</option>
+                <option value="Any">Any Available Activity</option>
                 <option value="Cargo">Cargo Trade Route (Live Market Data)</option>
-                <option value="Courier">Data Courier</option>
-                <option value="Assassination">Assassination Target</option>
-                <option value="Planetary Ops">Planetary Surface Ops</option>
+                <option value="Combat">Combat Patrol / Mercenary</option>
+                <option value="Freelance">Freelance / Board Hopping</option>
+                <option value="Surface">Surface Recon / Scavenging</option>
             </select>
         </div>
 
@@ -495,14 +495,14 @@
     async function handleMissionLogic(searchPool, loader, resultBox) {
         const prefType = document.getElementById('missionType').value;
         const archetypes = [
-            { id: 'Courier', locFilter: 'Orbital' },
-            { id: 'Assassination', locFilter: '' },
-            { id: 'Planetary Ops', locFilter: 'Planetary' }
+            { id: 'Freelance', locFilter: 'Orbital' },
+            { id: 'Combat', locFilter: '' },
+            { id: 'Surface', locFilter: 'Planetary' }
         ];
         
         let selectedType = prefType;
         if (prefType === 'Any') {
-            const allTypes = ['Cargo', 'Courier', 'Assassination', 'Planetary Ops'];
+            const allTypes = ['Cargo', 'Freelance', 'Combat', 'Surface'];
             selectedType = allTypes[Math.floor(Math.random() * allTypes.length)];
         }
 
@@ -621,23 +621,26 @@
         `;
         resultBox.style.display = 'block';
     }
-
     function renderStandardBriefing(system, location, type, resultBox) {
+        let title = "";
         let briefing = "";
-        if (type === 'Courier') briefing = `Run a secure data packet to local contacts. Head to <strong>${location.name}</strong> in the <strong>${system.name}</strong> system. Keep your hull intact and avoid scans.`;
-        if (type === 'Assassination') briefing = `Bounty issued. We've tracked a hostile target to the <strong>${system.name}</strong> system. Last known trajectory had them operating near <strong>${location.name}</strong>. Engage and destroy.`;
-        if (type === 'Planetary Ops') briefing = `Surface recon required. Proceed to the planetary site <strong>${location.name}</strong> in <strong>${system.name}</strong>. Interface with the local datalink and extract the operational logs. SRV recommended.`;
+
+        if (type === 'Freelance') {
+            title = "Activity: Freelance Operations";
+            briefing = `Commander, local factions in the <strong>${system.name}</strong> system are seeking independent pilots. Dock at <strong>${location.name}</strong>, check the mission boards for courier runs or light transport jobs, and see where the credits take you.`;
+        } else if (type === 'Combat') {
+            title = "Activity: Combat Patrol";
+            briefing = `Hostile activity reported in <strong>${system.name}</strong>. Use <strong>${location.name}</strong> as a staging ground to repair and rearm. Check their local boards for bounty contracts, or drop into nearby Nav Beacons and Resource Extraction Sites to hunt wanted targets.`;
+        } else if (type === 'Surface') {
+            title = "Activity: Surface Recon & Scavenging";
+            briefing = `Planetary operations recommended in <strong>${system.name}</strong>. Touch down at <strong>${location.name}</strong> to resupply, then deploy your SRV to investigate surface signals, scavenge irregular markers, or gather raw materials in the surrounding area.`;
+        }
 
         resultBox.innerHTML = `
-            <div class="mission-title">Contract: ${type}</div>
+            <div class="mission-title">${title}</div>
             <div class="mission-brief">"${briefing}"</div>
-            <div class="result-item">
-                <div class="result-label">Target System</div>
-                <div class="result-value flex-val">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${system.distance.toFixed(2)} Ly)</span>
-                    <button class="copy-btn" onclick="copyToClipboard('${system.name}', this)" title="Copy System Name">📋</button>
-                </div>
-            </div>
-            <div class="result-item"><div class="result-label">Target Location</div><div class="result-value">${location.name}</div></div>
+            <div class="result-item"><div class="result-label">Target System</div><div class="result-value">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${system.distance.toFixed(2)} Ly)</span></div></div>
+            <div class="result-item"><div class="result-label">Staging Location</div><div class="result-value">${location.name}</div></div>
             <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${location.type || 'Unknown'}</div></div>
         `;
         resultBox.style.display = 'block';
