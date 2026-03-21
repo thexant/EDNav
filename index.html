@@ -1473,7 +1473,7 @@
             for(let p = 0; p < phasesPerChapter; p++) {
                 if(poolCopy.length === 0) break;
                 
-                const phaseFunc = selectedArc.phases[globalPhaseIndex % selectedArc.phases.length];
+                const phaseFunc = selectedArc.chapters[globalPhaseIndex % selectedArc.chapters.length];
                 globalPhaseIndex++;
                 
                 let targetSys = poolCopy.pop();
