@@ -300,11 +300,16 @@
             <div style="flex: 1; text-align: left;">
                 <label for="globalShipProfile" style="font-size: 0.75rem; margin-bottom: 2px;">Active Vessel Loadout</label>
                 <select id="globalShipProfile" style="padding: 6px; font-size: 0.85rem;" onchange="applyShipDirectives()">
-                    <option value="Multi">Multi-Role (All Activities)</option>
-                    <option value="Combat">Heavy Combat (Weapons Hot)</option>
-                    <option value="Hauler">Heavy Hauler (High Cargo, Unarmed)</option>
-                    <option value="Explorer">Deep Space Explorer (Jump Range, Scanners)</option>
+                    <option value="Multi">Multi-Role / General Purpose</option>
+                    <option value="CombatLight">Light/Fast Combat (Interceptors, Fighters)</option>
+                    <option value="CombatHeavy">Heavy Combat (Brawlers, Gunships)</option>
+                    <option value="TransportLight">Light/Med Transport (Outpost Runners, Couriers)</option>
+                    <option value="TransportHeavy">Heavy Freighter (Bulk Cargo, Large Pads)</option>
                     <option value="Smuggler">Covert / Blockade Runner (Cool & Fast)</option>
+                    <option value="Explorer">Deep Space Explorer (Jump Range, Scanners)</option>
+                    <option value="Rescue">Search, Rescue & Salvage (Limpets, SRVs)</option>
+                    <option value="Passenger">Passenger / Tourism (Cabins)</option>
+                    <option value="Industrial">Industrial / Mining (Refineries, Tools)</option>
                 </select>
             </div>
             <button class="scramble-btn" onclick="executeScrambleProtocol()" title="Randomize and launch immediately">Scramble Protocol</button>
@@ -508,12 +513,17 @@
         <div class="form-group">
             <label>Available Fleet (For Ship Switching Directives)</label>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0;">Check the ship types currently docked at your Home Base.</p>
-            <div class="checkbox-group narrative-fleet" id="narrativeFleetCheckboxes">
-                <label class="checkbox-label"><input type="checkbox" value="Combat" checked> Heavy Combat</label>
-                <label class="checkbox-label"><input type="checkbox" value="Hauler" checked> Heavy Hauler</label>
-                <label class="checkbox-label"><input type="checkbox" value="Explorer" checked> Deep Space Explorer</label>
-                <label class="checkbox-label"><input type="checkbox" value="Smuggler" checked> Blockade Runner / Smuggler</label>
+            <div class="checkbox-group narrative-fleet" id="narrativeFleetCheckboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <label class="checkbox-label"><input type="checkbox" value="Multi" checked> Multi-Role</label>
+                <label class="checkbox-label"><input type="checkbox" value="CombatLight" checked> Light/Fast Combat</label>
+                <label class="checkbox-label"><input type="checkbox" value="CombatHeavy" checked> Heavy Combat</label>
+                <label class="checkbox-label"><input type="checkbox" value="TransportLight" checked> Light/Med Transport</label>
+                <label class="checkbox-label"><input type="checkbox" value="TransportHeavy" checked> Heavy Freighter</label>
+                <label class="checkbox-label"><input type="checkbox" value="Smuggler" checked> Covert / Smuggler</label>
+                <label class="checkbox-label"><input type="checkbox" value="Explorer" checked> Deep Space Explorer</label>
+                <label class="checkbox-label"><input type="checkbox" value="Rescue" checked> Rescue & Salvage</label>
+                <label class="checkbox-label"><input type="checkbox" value="Passenger" checked> Passenger / Tourism</label>
+                <label class="checkbox-label"><input type="checkbox" value="Industrial" checked> Industrial / Mining</label>
             </div>
         </div>
 
@@ -562,34 +572,45 @@
         Array.from(missionSelect.options).forEach(opt => opt.disabled = false);
         tourismCheckboxes.forEach(cb => { cb.disabled = false; cb.parentElement.style.opacity = '1'; });
 
-        if (profile === 'Combat') {
-            if(missionSelect.value !== 'Combat' && missionSelect.value !== 'Freelance' && missionSelect.value !== 'Any') missionSelect.value = "Combat";
-            Array.from(missionSelect.options).forEach(opt => {
-                if(!['Combat', 'Freelance', 'Any'].includes(opt.value)) opt.disabled = true;
-            });
-        } else if (profile === 'Hauler') {
-            if(['Combat', 'Smuggling', 'Surface'].includes(missionSelect.value)) missionSelect.value = "Cargo";
-            Array.from(missionSelect.options).forEach(opt => {
-                if(['Combat', 'Smuggling', 'Surface'].includes(opt.value)) opt.disabled = true;
-            });
-        } else if (profile === 'Explorer') {
-            if(['Combat', 'Cargo', 'Mining'].includes(missionSelect.value)) missionSelect.value = "Surface";
-            Array.from(missionSelect.options).forEach(opt => {
-                if(['Combat', 'Cargo', 'Mining'].includes(opt.value)) opt.disabled = true;
-            });
+        // Map allowed missions to ship archetypes
+        const allowedMissions = {
+            'Multi': ['Any', 'Cargo', 'Smuggling', 'Combat', 'Freelance', 'Mining', 'Rescue', 'Salvage', 'Surface'],
+            'CombatLight': ['Combat', 'Freelance', 'Surface'],
+            'CombatHeavy': ['Combat', 'Freelance'],
+            'TransportLight': ['Cargo', 'Smuggling', 'Freelance', 'Rescue'],
+            'TransportHeavy': ['Cargo', 'Mining'],
+            'Smuggler': ['Smuggling', 'Freelance', 'Cargo'],
+            'Explorer': ['Surface', 'Freelance', 'Rescue'],
+            'Rescue': ['Rescue', 'Salvage', 'Surface', 'Freelance'],
+            'Passenger': ['Freelance', 'Rescue'],
+            'Industrial': ['Mining', 'Salvage', 'Cargo']
+        };
+
+        const validMissions = allowedMissions[profile] || allowedMissions['Multi'];
+
+        // Force a valid selection if the current one is disabled by the new ship profile
+        if (!validMissions.includes(missionSelect.value) && missionSelect.value !== 'Any') {
+            missionSelect.value = validMissions[0]; 
+        }
+
+        // Disable incompatible dropdown options
+        Array.from(missionSelect.options).forEach(opt => {
+            if (!validMissions.includes(opt.value) && opt.value !== 'Any') {
+                opt.disabled = true;
+            }
+        });
+
+        // Tourism Constraints: Industrial and Heavy Combat ships shouldn't be running luxury tours
+        if (['CombatLight', 'CombatHeavy', 'TransportHeavy', 'Industrial'].includes(profile)) {
             tourismCheckboxes.forEach(cb => {
-                if (cb.value === 'Luxury') { cb.disabled = true; cb.checked = false; cb.parentElement.style.opacity = '0.4'; }
-            });
-        } else if (profile === 'Smuggler') {
-            if(['Mining', 'Rescue', 'Combat'].includes(missionSelect.value)) missionSelect.value = "Smuggling";
-            Array.from(missionSelect.options).forEach(opt => {
-                if(['Mining', 'Rescue', 'Combat'].includes(opt.value)) opt.disabled = true;
+                if (cb.value === 'Luxury' || cb.value === 'Beacons') { 
+                    cb.disabled = true; cb.checked = false; cb.parentElement.style.opacity = '0.4'; 
+                }
             });
         }
         
         missionSelect.dispatchEvent(new Event('change'));
     }
-
     // --- Scramble Protocol ---
     function executeScrambleProtocol() {
         const tabs = ['mission', 'tourism', 'narrative'];
@@ -1206,7 +1227,7 @@
         const templates = [
             {
                 type: 'Salvage Operation',
-                reqShip: ['Multi', 'Explorer'],
+                reqShip: ['Multi', 'Explorer', 'Rescue', 'TransportLight'],
                 desc: "A faction operative's vessel was destroyed. We need the flight logs recovered.",
                 generate: (sys, loc) => [
                     `Jump to the <strong>${sys}</strong> system.`,
@@ -1217,7 +1238,7 @@
             },
             {
                 type: 'Targeted Assassination',
-                reqShip: ['Combat', 'Multi'],
+                reqShip: ['CombatLight', 'CombatHeavy', 'Multi'],
                 desc: "A syndicate enforcer has intercepted our data. Eliminate them.",
                 generate: (sys, loc) => [
                     `Infiltrate the <strong>${sys}</strong> system.`,
@@ -1227,7 +1248,7 @@
             },
             {
                 type: 'Covert Extraction',
-                reqShip: ['Smuggler', 'Multi'],
+                reqShip: ['Smuggler', 'CombatLight', 'Multi'],
                 desc: "An asset needs immediate extraction from hostile territory.",
                 generate: (sys, loc) => [
                     `Proceed quietly to the <strong>${sys}</strong> system.`,
@@ -1237,22 +1258,42 @@
             },
             {
                 type: 'Planetary Recon',
-                reqShip: ['Explorer', 'Multi', 'Combat'],
+                reqShip: ['Explorer', 'Multi', 'CombatLight', 'Rescue'],
                 desc: "We require local telemetry from a planetary installation.",
                 generate: (sys, loc) => [
-                    `Maps to the <strong>${sys}</strong> system.`,
+                    `Map a route to the <strong>${sys}</strong> system.`,
                     `Enter orbital glide and approach planetary coordinates near <strong>${loc}</strong>.`,
                     `Deploy your SRV, breach the settlement perimeter, and interface with the target data terminal.`
                 ]
             },
             {
                 type: 'Heavy Logistics',
-                reqShip: ['Hauler', 'Multi'],
+                reqShip: ['TransportHeavy', 'TransportLight', 'Multi'],
                 desc: "Critical infrastructure supplies must be delivered to an allied outpost.",
                 generate: (sys, loc) => [
                     `Travel to the industrial center in <strong>${sys}</strong>.`,
                     `Dock at <strong>${loc}</strong> and load up the designated heavy equipment.`,
                     `Ensure the cargo holds are secure and deliver the manifest to the regional contact.`
+                ]
+            },
+            {
+                type: 'VIP Escort',
+                reqShip: ['Passenger', 'Multi', 'TransportLight'],
+                desc: "A high-profile political figure requires transport off the grid.",
+                generate: (sys, loc) => [
+                    `Maps to the <strong>${sys}</strong> system and ensure your passenger cabins are prepped.`,
+                    `Land at <strong>${loc}</strong> to receive the VIP. Provide a smooth flight; hull damage will compromise the payout.`,
+                    `Transport them to their destination while evading any interdiction attempts by rival factions.`
+                ]
+            },
+            {
+                type: 'Industrial Strike',
+                reqShip: ['Industrial', 'Multi', 'TransportHeavy'],
+                desc: "A rival faction is hoarding resources. Extract high-value minerals from their local rings.",
+                generate: (sys, loc) => [
+                    `Deploy to the pristine rings located in the <strong>${sys}</strong> system.`,
+                    `Use your prospector limpets to locate high-yield asteroids near <strong>${loc}</strong>.`,
+                    `Extract the payload and transport the refined minerals to our designated drop-off point.`
                 ]
             }
         ];
@@ -1289,9 +1330,19 @@
                 const switchLocation = homeBase ? `<strong>${homeBase}</strong>` : "your base of operations";
                 
                 let shipName = newShipType;
-                if(newShipType === 'Multi') shipName = 'Multi-Role';
-                if(newShipType === 'Combat') shipName = 'Heavy Combat';
-                if(newShipType === 'Hauler') shipName = 'Heavy Hauler';
+                const classNames = {
+                    'Multi': 'Multi-Role',
+                    'CombatLight': 'Light/Fast Combat',
+                    'CombatHeavy': 'Heavy Combat',
+                    'TransportLight': 'Light/Medium Transport',
+                    'TransportHeavy': 'Heavy Freighter',
+                    'Smuggler': 'Covert/Blockade Runner',
+                    'Explorer': 'Deep Space Explorer',
+                    'Rescue': 'Rescue/Salvage',
+                    'Passenger': 'Passenger/Tourism',
+                    'Industrial': 'Industrial/Mining'
+                };
+                if(classNames[newShipType]) shipName = classNames[newShipType];
                 
                 chapterSteps.push(`Return to ${switchLocation} and transfer to your <strong>${shipName}</strong> vessel.`);
                 activeShip = newShipType; // Update state
