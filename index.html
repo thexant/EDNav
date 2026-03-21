@@ -1045,6 +1045,28 @@
         
                 // FIX 2: Shuffle types and test ALL of them against the system before discarding it
                 let typesToTry = shuffleArray([...selectedTypes]);
+                
+                // NEW: Dynamic Load Balancing for Mixed Tours
+                if (selectedTypes.length > 1) {
+                    // Calculate a fair-share cap (e.g., 3 stops / 3 types = max 1 per type)
+                    const maxPerType = Math.ceil(stopsCount / selectedTypes.length);
+                    
+                    // Remove types that have already hit their cap
+                    let underCapTypes = typesToTry.filter(t => {
+                        const count = routeStops.filter(s => s.stopType === t).length;
+                        return count < maxPerType;
+                    });
+                    
+                    if (underCapTypes.length > 0) typesToTry = underCapTypes;
+                    
+                    // Sort remaining to prioritize the least-used types first
+                    typesToTry.sort((a, b) => {
+                        const countA = routeStops.filter(s => s.stopType === a).length;
+                        const countB = routeStops.filter(s => s.stopType === b).length;
+                        return countA - countB;
+                    });
+                }
+
                 let stationDataCache = null; // Cache to prevent hitting the API 4 times for the same system
                 let systemMatched = false;
 
@@ -1141,11 +1163,7 @@
                                     // 2. Require a "rugged" frontier economy to make them rarer and more thematic
                                     const isRugged = ['Extraction', 'Refinery', 'Military', 'Colony', 'Terraforming'].some(e => econ.includes(e));
                                     
-                                    // 3. Limit to 1 Adventure stop IF the user has selected a mixed itinerary
-                                    const adventureCount = routeStops.filter(s => s.stopType === 'Adventure').length;
-                                    const isOverLimit = (selectedTypes.length > 1 && adventureCount >= 1);
-                                
-                                    isValid = isSurface && isRugged && !isOverLimit;
+                                    isValid = isSurface && isRugged;
                                 } else if (currentType === 'GrandTour') {
                                     isValid = (econ && econ !== "None" && econ !== "Unknown");
                                     if (isValid && usedGrandTourEconomies.has(econ)) return false; 
@@ -1240,119 +1258,196 @@
                 theme: 'Corporate Espionage & Sabotage',
                 reqShip: ['Multi', 'Smuggler', 'CombatLight', 'Explorer'],
                 desc: "A rival corporation is developing a devastating prototype. We are dismantling their operation piece by piece.",
-                phases: [
-                    (sys, loc) => [`Infiltrate the <strong>${sys}</strong> system. Keep a low profile.`, `Approach <strong>${loc}</strong> and scan their local data links or planetary networks to intercept their encrypted shipping manifests.`],
-                    (sys, loc) => [`The decoded data pointed us to a vulnerable supply depot in <strong>${sys}</strong>.`, `Intercept and destroy their corporate supply convoys near <strong>${loc}</strong> to starve their project of vital materials.`],
-                    (sys, loc) => [`With their supplies cut, their lead researcher is attempting to flee our sector.`, `Track their emissions signature to <strong>${sys}</strong>, locate them near <strong>${loc}</strong>, and eliminate the target before they escape.`],
-                    (sys, loc) => [`We need to know exactly where the prototype is housed.`, `Fly to <strong>${sys}</strong> and hack the local security terminals at <strong>${loc}</strong> to download the facility coordinates.`],
-                    (sys, loc) => [`The prototype is exposed at a testing facility in <strong>${sys}</strong>.`, `Assault the installation near <strong>${loc}</strong>, bypass their security grid, and destroy the weapon.`],
-                    (sys, loc) => [`The corporation's executives are scrubbing the evidence and burning their agents.`, `Fly to <strong>${sys}</strong>, dock at <strong>${loc}</strong>, and extract our undercover informant before the corporate hit squads arrive.`],
-                    (sys, loc) => [`Our informant is injured and needs a secure drop-off.`, `Evade the interceptors hunting you and deliver the asset safely to the medical wing at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`A corporate wet-work team is retaliating for the extraction.`, `Drop into the signal sources in <strong>${sys}</strong> near <strong>${loc}</strong> and wipe out the hit squad.`],
-                    (sys, loc) => [`We're going for the killing blow. We need their offshore financial ledgers.`, `Deploy an SRV or use hatch-breakers at <strong>${loc}</strong> in <strong>${sys}</strong> to steal their encrypted financial data.`],
-                    (sys, loc) => [`The Board of Directors is holding an emergency meeting to assess the damage.`, `Travel to <strong>${sys}</strong>, locate the VIP vessel near <strong>${loc}</strong>, and assassinate the CEO to permanently cripple the corporation.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[RECON] Jump to the <strong>${sys1}</strong> system. Keep a low profile and avoid security scans.`,
+                        `Approach <strong>${loc1}</strong>. Run a data-link scan on their local network to intercept encrypted shipping manifests.`,
+                        `[ANALYSIS] The decoded data indicates their supply line originates off-site. Plot a course for <strong>${sys2}</strong>.`,
+                        `[ASSAULT] Intercept their corporate supply convoys near <strong>${loc2}</strong>. Destroy the freighters to starve their project of vital materials.`,
+                        `[RECOVERY] Deploy a collector limpet to salvage their Black Box from the wreckage before system authorities drop in.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[TRACKING] With their supplies cut, their lead researcher is attempting to flee. Jump to <strong>${sys1}</strong> and scan the Nav Beacon.`,
+                        `Follow their emissions signature to <strong>${loc1}</strong> and eliminate the target's escort wing.`,
+                        `[EXTRACTION] The target's ship is disabled. Use a hatch breaker limpet to steal their navigational logs.`,
+                        `[INFILTRATION] The logs point to the prototype's housing facility in <strong>${sys2}</strong>.`,
+                        `Fly to <strong>${loc2}</strong>, bypass the perimeter security, and hack the surface terminal to download the facility blueprints.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[SABOTAGE] We have the blueprints. The prototype is exposed at a testing facility in <strong>${sys1}</strong>.`,
+                        `Assault the installation near <strong>${loc1}</strong>. Destroy the generator networks to disable their anti-air defenses.`,
+                        `[ASSASSINATION] The Board of Directors is holding an emergency meeting to assess the damage in a neighboring sector.`,
+                        `Travel to <strong>${sys2}</strong>, locate the VIP vessel near <strong>${loc2}</strong>, and assassinate the CEO to permanently cripple the corporation.`,
+                        `[EVASION] High-wake out of the system immediately and scrub your ship's transponder.`
+                    ]
                 ]
             },
             {
                 theme: 'The Ghost Ship Mystery',
                 reqShip: ['Explorer', 'Rescue', 'Multi', 'Passenger'],
                 desc: "An expedition ship vanished weeks ago. We've just picked up a faint, corrupted distress signal.",
-                phases: [
-                    (sys, loc) => [`Jump to the <strong>${sys}</strong> system where the signal originated.`, `Locate the distress beacon near <strong>${loc}</strong>, drop into the wreckage, and salvage the ship's black box.`],
-                    (sys, loc) => [`The black box data is heavily encrypted. We need a specialist.`, `Transport the drive to a contact operating out of <strong>${loc}</strong> in the <strong>${sys}</strong> system for decryption.`],
-                    (sys, loc) => [`The decrypted logs point to a forced detour. Follow their telemetry to <strong>${sys}</strong>.`, `Scan the bodies near <strong>${loc}</strong> to find the unmarked planetary site where the crew was taken.`],
-                    (sys, loc) => [`We've confirmed survivors are being held by a local pirate syndicate in <strong>${sys}</strong>.`, `Infiltrate <strong>${loc}</strong>, secure the hostages, and load them into your cabins.`],
-                    (sys, loc) => [`The syndicate is sending interceptors to silence the survivors.`, `Evade interdiction and deliver the crew safely to medical facilities at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`One of the survivors mentioned experimental tech still left at the ambush site.`, `Return to <strong>${sys}</strong> and scavenge the remaining degraded emission sites near <strong>${loc}</strong> for the stolen tech.`],
-                    (sys, loc) => [`The tech is unstable and needs containment.`, `Transport the salvaged components to an allied engineering outpost at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The syndicate is trying to cover their tracks by wiping the local comms relays.`, `Fly to <strong>${sys}</strong> and defend the relay station near <strong>${loc}</strong> from attacking pirate forces.`],
-                    (sys, loc) => [`We have the location of the syndicate leader who ordered the attack.`, `Track the target down in the <strong>${sys}</strong> system near <strong>${loc}</strong> and execute them.`],
-                    (sys, loc) => [`The mystery is solved, but the victims' families need closure.`, `Deliver the recovered personal effects and final expedition logs to their home port at <strong>${loc}</strong> in <strong>${sys}</strong>.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[SEARCH] Jump to the <strong>${sys1}</strong> system where the corrupted signal originated.`,
+                        `Locate the distress beacon near <strong>${loc1}</strong>, drop into the wreckage, and salvage the ship's black box.`,
+                        `[TRANSIT] The black box data is heavily encrypted. We need a specialist.`,
+                        `Plot a course for <strong>${sys2}</strong> and transport the drive to our contact operating out of <strong>${loc2}</strong> for decryption.`,
+                        `[DECODE] Wait on the pad while the specialist runs the decryption algorithms.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[TRACKING] The decrypted logs point to a forced detour. Follow their telemetry to <strong>${sys1}</strong>.`,
+                        `Scan the planetary bodies near <strong>${loc1}</strong> to find the unmarked site where the crew was taken.`,
+                        `[INFILTRATION] We've confirmed survivors are being held by a local pirate syndicate in <strong>${sys2}</strong>.`,
+                        `Land at the settlement near <strong>${loc2}</strong>, secure the hostages on foot or via SRV, and load them into your cabins.`,
+                        `[EVASION] The syndicate is sending interceptors. Evade interdiction on your way back into orbit.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[RETALIATION] The syndicate leader is trying to cover their tracks by wiping local comms relays. Fly to <strong>${sys1}</strong>.`,
+                        `Drop into the signal source near <strong>${loc1}</strong> and execute the syndicate leader who ordered the attack.`,
+                        `[RECOVERY] One of the survivors gave us the coordinates to their stolen experimental tech.`,
+                        `Travel to <strong>${sys2}</strong>, scavenge the degraded emission sites near <strong>${loc2}</strong> for the tech, and deliver the survivors to safety.`,
+                        `[CLOSURE] Hand over the recovered personal effects and final expedition logs to local authorities.`
+                    ]
                 ]
             },
             {
                 theme: 'Syndicate Crackdown',
                 reqShip: ['CombatHeavy', 'CombatLight', 'Multi'],
                 desc: "A powerful crime syndicate is suffocating local trade. It's time to cut the head off the snake.",
-                phases: [
-                    (sys, loc) => [`Deploy to the <strong>${sys}</strong> system.`, `Investigate signal sources near <strong>${loc}</strong> to identify and eliminate the syndicate's low-level scouts and spotters.`],
-                    (sys, loc) => [`They are moving illicit funds through a front company in <strong>${sys}</strong>.`, `Hack the terminal network at <strong>${loc}</strong> to freeze their assets and force their leadership out of hiding.`],
-                    (sys, loc) => [`A syndicate lieutenant has been flushed out and is rallying forces in <strong>${sys}</strong>.`, `Track the lieutenant to <strong>${loc}</strong> and assassinate them.`],
-                    (sys, loc) => [`The remaining enforcers are retaliating by blockading <strong>${sys}</strong>.`, `Drop into the combat zones near <strong>${loc}</strong> and help local security forces break the blockade.`],
-                    (sys, loc) => [`They are hiding weapons in an unmarked cache.`, `Search the planetary surfaces in <strong>${sys}</strong> near <strong>${loc}</strong> and destroy the skimmers guarding their stockpile.`],
-                    (sys, loc) => [`We have a high-profile prosecutor willing to testify against them.`, `Pick up the VIP from <strong>${loc}</strong> in <strong>${sys}</strong> and ensure their safety.`],
-                    (sys, loc) => [`The syndicate has deployed heavy gunships to intercept the prosecutor.`, `Draw their fire in the <strong>${sys}</strong> system near <strong>${loc}</strong> and destroy the ambushers.`],
-                    (sys, loc) => [`We need to sever their communications network.`, `Infiltrate the data point at <strong>${loc}</strong> in <strong>${sys}</strong> and upload our localized virus.`],
-                    (sys, loc) => [`The syndicate boss's elite guard is making a push against our local station.`, `Defend <strong>${loc}</strong> in the <strong>${sys}</strong> system from the incoming assault wave.`],
-                    (sys, loc) => [`The syndicate boss is making a final stand in <strong>${sys}</strong>.`, `Assault their heavily fortified position at <strong>${loc}</strong> and end their reign once and for all.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[PATROL] Deploy to the <strong>${sys1}</strong> system.`,
+                        `Investigate signal sources near <strong>${loc1}</strong> to identify and eliminate the syndicate's low-level scouts and spotters.`,
+                        `[INVESTIGATION] They are moving illicit funds through a front company in a neighboring sector.`,
+                        `Jump to <strong>${sys2}</strong> and hack the terminal network at <strong>${loc2}</strong> to freeze their assets.`,
+                        `[AFTERMATH] Prepare for hostile reinforcements jumping into your instance.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[ASSASSINATION] Freezing their assets flushed out a syndicate lieutenant. They are rallying forces in <strong>${sys1}</strong>.`,
+                        `Track the lieutenant to their rallying point near <strong>${loc1}</strong> and assassinate them.`,
+                        `[DEFENSE] The remaining enforcers are retaliating by blockading an allied station in <strong>${sys2}</strong>.`,
+                        `Jump into the system, drop into the combat zones near <strong>${loc2}</strong>, and help local security forces break the blockade.`,
+                        `[REPAIR] Dock and rearm your hardpoints. The final push is coming.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[ESCORT] We have a high-profile prosecutor willing to testify against the syndicate leadership. Jump to <strong>${sys1}</strong>.`,
+                        `Pick up the VIP from <strong>${loc1}</strong>. Expect heavy resistance on your way out of the mass lock factor.`,
+                        `[ASSAULT] The syndicate boss is making a final stand in <strong>${sys2}</strong> to prevent the testimony.`,
+                        `Secure the VIP, then assault the boss's heavily fortified position at <strong>${loc2}</strong>.`,
+                        `[EXECUTION] Destroy their capital vessel or command ship to end their reign once and for all.`
+                    ]
                 ]
             },
             {
                 theme: 'Frontier Relief Effort',
                 reqShip: ['TransportHeavy', 'TransportLight', 'Multi', 'Industrial'],
                 desc: "A frontier system has been hit by disaster. We are coordinating a massive relief effort.",
-                phases: [
-                    (sys, loc) => [`Travel to the agricultural hub in <strong>${sys}</strong>.`, `Procure critical food cartridges and water purifiers from <strong>${loc}</strong> for the initial relief wave.`],
-                    (sys, loc) => [`Opportunistic scavengers are attacking the relief lines in <strong>${sys}</strong>.`, `Deliver the supplies to <strong>${loc}</strong>, ensuring you fend off or evade any pirate interdictions en route.`],
-                    (sys, loc) => [`The disaster crippled their infrastructure. They need heavy machinery.`, `Source industrial equipment and auto-fabricators from the refineries operating near <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`Transport the heavy machinery to <strong>${sys}</strong>.`, `Map the debris fields near <strong>${loc}</strong> to deliver the payload to the repair crews.`],
-                    (sys, loc) => [`The system's economy is stabilizing, but they need raw materials to rebuild.`, `Mine or purchase bulk structural materials and deliver them to the primary starport at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`A local mining outpost suffered a collapse during the aftershocks.`, `Rush to <strong>${loc}</strong> in the <strong>${sys}</strong> system and deploy collector limpets to rescue the trapped escape pods.`],
-                    (sys, loc) => [`The rescued miners require immediate medical attention.`, `Transport the injured crew to the nearest triage center at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`A pirate warlord is exploiting the weakened system to extort the locals.`, `Track down the pirate leader in <strong>${sys}</strong> near <strong>${loc}</strong> and eliminate them to secure the trade lanes.`],
-                    (sys, loc) => [`The power grid is failing and requires emergency micro-controllers.`, `Source the high-tech components and rush them to the surface settlement at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The system is finally recovering and throwing a local celebration.`, `Procure luxury goods or rare commodities and deliver them to <strong>${loc}</strong> in <strong>${sys}</strong> to finalize the relief effort.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[PROCUREMENT] Travel to the agricultural hub in <strong>${sys1}</strong>.`,
+                        `Procure critical food cartridges and water purifiers from the market at <strong>${loc1}</strong> for the initial relief wave.`,
+                        `[DELIVERY] Opportunistic scavengers are attacking the relief lines. Jump to the disaster zone in <strong>${sys2}</strong>.`,
+                        `Deliver the supplies to <strong>${loc2}</strong>, ensuring you fend off or evade any pirate interdictions en route.`,
+                        `[UNLOAD] Help local crews offload the cargo to triage centers.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[LOGISTICS] The disaster crippled their infrastructure. Jump to the industrial sector in <strong>${sys1}</strong>.`,
+                        `Source heavy machinery and auto-fabricators from the refineries operating near <strong>${loc1}</strong>.`,
+                        `[RESCUE] A local mining outpost suffered a collapse during the aftershocks. Rush your heavy equipment to <strong>${sys2}</strong>.`,
+                        `Deploy collector limpets near <strong>${loc2}</strong> to clear the debris field and rescue the trapped escape pods.`,
+                        `[MEDEVAC] Transport the injured miners to the nearest operational medical bay.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[SECURITY] A pirate warlord is exploiting the weakened system to extort the locals. Jump to their staging ground in <strong>${sys1}</strong>.`,
+                        `Track down the pirate leader near <strong>${loc1}</strong> and eliminate them to secure the incoming trade lanes.`,
+                        `[REBUILD] The system is finally stabilizing and throwing a local celebration. Travel to <strong>${sys2}</strong>.`,
+                        `Procure luxury goods or rare commodities and deliver them to <strong>${loc2}</strong> to finalize the relief effort.`,
+                        `[PAYOUT] Collect your commendations from the relief coordinators.`
+                    ]
                 ]
             },
             {
                 theme: 'Xenological Survey Expedition',
                 reqShip: ['Explorer', 'Multi', 'Passenger'],
                 desc: "An academic institute needs a reliable pilot to chart anomalous readings and recover ancient artifacts from unmapped sectors.",
-                phases: [
-                    (sys, loc) => [`Jump to the <strong>${sys}</strong> system.`, `Scan the nav beacon near <strong>${loc}</strong> to calibrate your astrometrics for a deep space survey.`],
-                    (sys, loc) => [`Anomalous gravitational signals detected in <strong>${sys}</strong>.`, `Use a Detailed Surface Scanner to map the planetary bodies near <strong>${loc}</strong> and isolate the signal origin.`],
-                    (sys, loc) => [`Biological or geological anomalies confirmed on the surface in <strong>${sys}</strong>.`, `Deploy an SRV at <strong>${loc}</strong> and sample the local flora or geological features for the institute.`],
-                    (sys, loc) => [`A specialist from the institute needs to examine the data in the field.`, `Pick up the xenologist from the passenger lounge at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The specialist has decoded a bearing to an ancient structural anomaly.`, `Travel to <strong>${sys}</strong> and investigate the surface ruins near <strong>${loc}</strong>. Keep your shields up.`],
-                    (sys, loc) => [`We need physical evidence to back up the telemetry.`, `Scavenge the site near <strong>${loc}</strong> in <strong>${sys}</strong> for ancient relics or guardian technology.`],
-                    (sys, loc) => [`Unregistered vessels have tracked your emissions. Grave robbers.`, `Evade interdiction or destroy the pursuers hunting your cargo in <strong>${sys}</strong> near <strong>${loc}</strong>.`],
-                    (sys, loc) => [`The data is too sensitive to keep solely on your ship's local blackbox.`, `Upload the encrypted telemetry logs to the secure communications relay at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The artifacts must be delivered to the institute's primary laboratory.`, `Transport the relics safely to the research facility at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The institute is holding a symposium on your findings.`, `Return to <strong>${loc}</strong> in <strong>${sys}</strong> for your payment and a commendation from the scientific board.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[SURVEY] Jump to the <strong>${sys1}</strong> system.`,
+                        `Scan the nav beacon near <strong>${loc1}</strong> to calibrate your astrometrics, then use a Detailed Surface Scanner to map anomalous gravitational signals.`,
+                        `[SAMPLING] Biological or geological anomalies confirmed. Plot a course to <strong>${sys2}</strong>.`,
+                        `Deploy an SRV at the planetary site near <strong>${loc2}</strong> and sample the local flora or geological features for the institute.`,
+                        `[UPLOAD] Transmit the initial findings back to the academic institute.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[VIP TRANSIT] A specialist from the institute needs to examine the data in the field. Jump to <strong>${sys1}</strong>.`,
+                        `Pick up the xenologist from the passenger lounge at <strong>${loc1}</strong>.`,
+                        `[EXCAVATION] The specialist has decoded a bearing to an ancient structural anomaly. Travel to <strong>${sys2}</strong>.`,
+                        `Investigate the surface ruins near <strong>${loc2}</strong>. Keep your shields up and scavenge the site for ancient relics or Guardian technology.`,
+                        `[SECURE] Load the artifacts into your cargo hold.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[DEFENSE] Unregistered vessels have tracked your emissions. Grave robbers. Jump to <strong>${sys1}</strong>.`,
+                        `Evade interdiction or destroy the pursuers hunting your cargo near <strong>${loc1}</strong>.`,
+                        `[DELIVERY] The artifacts are safe, but they must be delivered to the institute's primary laboratory. Travel to <strong>${sys2}</strong>.`,
+                        `Transport the relics and the xenologist safely to the research facility at <strong>${loc2}</strong>.`,
+                        `[CONCLUSION] Dock and attend the symposium on your findings to receive your payment.`
+                    ]
                 ]
             },
             {
                 theme: 'VIP Defection & Extraction',
                 reqShip: ['Passenger', 'Smuggler', 'CombatLight', 'Multi'],
                 desc: "A high-ranking political dissident needs to be smuggled out of hostile territory before local authorities silence them.",
-                phases: [
-                    (sys, loc) => [`Make contact with our undercover handler in <strong>${sys}</strong>.`, `Dock at <strong>${loc}</strong> and retrieve the encrypted rendezvous coordinates from the local station network.`],
-                    (sys, loc) => [`The dissident's transport was ambushed en route.`, `Jump to <strong>${sys}</strong> and search the degraded emission debris fields near <strong>${loc}</strong> for their distress beacon.`],
-                    (sys, loc) => [`They survived and are hiding in a nearby planetary settlement.`, `Land at <strong>${loc}</strong> in <strong>${sys}</strong> to quietly extract the VIP into your passenger cabins.`],
-                    (sys, loc) => [`System authorities are locking down the sector.`, `Smuggle the VIP past the blockade patrols and jump out of <strong>${sys}</strong> near <strong>${loc}</strong> without being scanned.`],
-                    (sys, loc) => [`The VIP was injured in the ambush and needs off-the-books medical supplies.`, `Source progenitor cells or combat stabilisers from the black market at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`Bounty hunters have picked up the VIP's trail.`, `Shake off the hunters pursuing you through the <strong>${sys}</strong> system near <strong>${loc}</strong>.`],
-                    (sys, loc) => [`We need forged transit permits to cross the border securely.`, `Meet our counterfeiter at the outpost <strong>${loc}</strong> in <strong>${sys}</strong> to secure the documents.`],
-                    (sys, loc) => [`The authorities have deployed an elite wing to intercept your ship.`, `Draw them away from the VIP's intended route and engage them in <strong>${sys}</strong> near <strong>${loc}</strong>.`],
-                    (sys, loc) => [`The border is clear, but we need a secure, trusted drop point.`, `Deliver the VIP to the allied social club safehouse at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The defection is complete, but the handlers need your operational data wiped.`, `Head to <strong>${loc}</strong> in <strong>${sys}</strong> to purge your nav computer and collect your hush money.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[CONTACT] Make contact with our undercover handler in <strong>${sys1}</strong>.`,
+                        `Dock at <strong>${loc1}</strong> and retrieve the encrypted rendezvous coordinates from the local station network.`,
+                        `[EXTRACTION] The dissident's transport was ambushed en route. Jump to <strong>${sys2}</strong>.`,
+                        `Search the degraded emission debris fields near <strong>${loc2}</strong>. Land at the nearby settlement to quietly extract the VIP into your passenger cabins.`,
+                        `[BLOCKADE] System authorities are locking down the sector. Smuggle the VIP past the patrols and jump out without being scanned.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[SUPPLY RUN] The VIP was injured in the ambush and needs off-the-books medical supplies. Travel to <strong>${sys1}</strong>.`,
+                        `Source progenitor cells or combat stabilisers from the black market at <strong>${loc1}</strong>.`,
+                        `[FORGERY] We need forged transit permits to cross the border securely. Plot a course for <strong>${sys2}</strong>.`,
+                        `Meet our counterfeiter at the outpost <strong>${loc2}</strong> to secure the documents.`,
+                        `[PREPARATION] Install a heat sink launcher if you don't have one. The final run will be hot.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[DIVERSION] The authorities have deployed an elite wing to intercept your ship. Jump to <strong>${sys1}</strong>.`,
+                        `Draw them away from the VIP's intended route and engage them near <strong>${loc1}</strong>. Destroy the pursuit wing.`,
+                        `[SAFEHOUSE] The border is clear, but we need a secure, trusted drop point. Travel to <strong>${sys2}</strong>.`,
+                        `Deliver the VIP to the allied safehouse at <strong>${loc2}</strong>.`,
+                        `[PURGE] Purge your nav computer logs to protect the handler's identity.`
+                    ]
                 ]
             },
             {
                 theme: 'Strategic Resource Acquisition',
                 reqShip: ['Industrial', 'TransportHeavy', 'Multi'],
                 desc: "A massive industrial expansion is underway. We need a foreman to prospect, mine, and secure vital resources for the fleet.",
-                phases: [
-                    (sys, loc) => [`The corporation needs high-yield pristine reserves.`, `Travel to <strong>${sys}</strong> and fire a Detailed Surface Scanner at the rings near <strong>${loc}</strong> to locate material hotspots.`],
-                    (sys, loc) => [`Initial surveys look promising. We need physical core samples.`, `Deploy prospector limpets in the rings of <strong>${sys}</strong> near <strong>${loc}</strong> and mine the initial fragments.`],
-                    (sys, loc) => [`Rival prospectors are encroaching on our claim.`, `Run them off or destroy their mining vessels in <strong>${sys}</strong> near <strong>${loc}</strong> to secure the perimeter.`],
-                    (sys, loc) => [`We need specialized seismic charges to break the motherlodes.`, `Procure industrial munitions from the outfitting armory at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`Time to crack some rocks.`, `Return to the rings in <strong>${sys}</strong> near <strong>${loc}</strong> and detonate asteroids with fissures to harvest rare minerals.`],
-                    (sys, loc) => [`Your hold is full, and local pirates have noticed the payload.`, `Survive the pirate ambush in the rings of <strong>${sys}</strong> near <strong>${loc}</strong>. Keep your cargo hatch secure.`],
-                    (sys, loc) => [`The refinery needs the raw materials immediately to meet the quota.`, `Deliver the freshly mined ore to the processing facility at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`The refinery machinery is breaking down from the heavy workload.`, `Source auto-fabricators and micro-controllers to repair the drills at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
-                    (sys, loc) => [`A corporate megaship has arrived to collect the refined alloys.`, `Transport the finished metals to the megaship in <strong>${sys}</strong> near <strong>${loc}</strong>.`],
-                    (sys, loc) => [`The quota is met. The expansion is a success.`, `Dock at the administrative center <strong>${loc}</strong> in <strong>${sys}</strong> to finalize the contract and claim your dividends.`]
+                chapters: [
+                    (sys1, loc1, sys2, loc2) => [
+                        `[PROSPECTING] The corporation needs high-yield pristine reserves. Travel to <strong>${sys1}</strong>.`,
+                        `Fire a Detailed Surface Scanner at the rings near <strong>${loc1}</strong> to locate material hotspots. Deploy prospector limpets to confirm core samples.`,
+                        `[ARMAMENT] We need specialized seismic charges to break the motherlodes. Jump to <strong>${sys2}</strong>.`,
+                        `Procure industrial munitions from the outfitting armory at <strong>${loc2}</strong>.`,
+                        `[PREP] Ensure you have enough active collector limpets for a heavy operation.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[EXTRACTION] Time to crack some rocks. Return to the rings in <strong>${sys1}</strong> near <strong>${loc1}</strong>.`,
+                        `Detonate asteroids with fissures to harvest rare minerals.`,
+                        `[DEFENSE] Your hold is full, and local pirates have noticed the payload. Survive the pirate ambush in the rings. Keep your cargo hatch secure.`,
+                        `[PROCESSING] The refinery needs the raw materials immediately to meet the quota. Jump to <strong>${sys2}</strong>.`,
+                        `Deliver the freshly mined ore to the processing facility at <strong>${loc2}</strong>.`
+                    ],
+                    (sys1, loc1, sys2, loc2) => [
+                        `[MAINTENANCE] The refinery machinery is breaking down from the heavy workload. Travel to <strong>${sys1}</strong>.`,
+                        `Source auto-fabricators and micro-controllers from <strong>${loc1}</strong> to repair their drills.`,
+                        `[FREIGHT] A corporate megaship has arrived to collect the refined alloys. Jump to <strong>${sys2}</strong>.`,
+                        `Transport the finished metals to the megaship near <strong>${loc2}</strong>.`,
+                        `[COMPLETION] The quota is met. The expansion is a success. Dock and claim your dividends.`
+                    ]
                 ]
             }
         ];
