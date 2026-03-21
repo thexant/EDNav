@@ -456,7 +456,8 @@
                 
                 if (!sourceStationsData.stations) continue;
                 
-                const validSourceStations = sourceStationsData.stations.filter(s => s.haveMarket && !s.type.includes("Fleet Carrier"));
+                // FIXED: Safely checking s.type
+                const validSourceStations = sourceStationsData.stations.filter(s => s.haveMarket && !(s.type || "").includes("Fleet Carrier"));
                 if (validSourceStations.length === 0) continue;
 
                 const sourceStation = validSourceStations[Math.floor(Math.random() * validSourceStations.length)];
@@ -470,14 +471,15 @@
                     
                     const chosenCommodity = inStock[Math.floor(Math.random() * inStock.length)];
 
-                    // Now find a destination that DEMANDS this commodity
                     for (let j = i + 1; j < Math.min(searchPool.length, 12); j++) {
                         const destSys = searchPool[j];
                         const destStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(destSys.name)}`);
                         const destStationsData = await destStationsRes.json();
                         
                         if (!destStationsData.stations) continue;
-                        const validDestStations = destStationsData.stations.filter(s => s.haveMarket && !s.type.includes("Fleet Carrier"));
+                        
+                        // FIXED: Safely checking s.type
+                        const validDestStations = destStationsData.stations.filter(s => s.haveMarket && !(s.type || "").includes("Fleet Carrier"));
                         if (validDestStations.length === 0) continue;
 
                         const destStation = validDestStations[Math.floor(Math.random() * validDestStations.length)];
