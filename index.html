@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EDSM Location Tool</title>
+    <title>EDSM Nav & Mission Interface</title>
     <style>
         :root {
             --bg-color: #0d1117;
             --panel-bg: #161b22;
             --text-main: #c9d1d9;
             --text-muted: #8b949e;
-            --accent: #ff8c00; /* Elite Dangerous Orange */
+            --accent: #ff8c00;
             --border: #30363d;
         }
 
@@ -25,7 +25,7 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 650px;
             width: 100%;
             background-color: var(--panel-bg);
             border: 1px solid var(--border);
@@ -97,22 +97,17 @@
             font-size: 0.9rem;
         }
 
-				input[type="text"], input[type="number"], select {
-						width: 100%;
-						padding: 10px;
-						border: 1px solid var(--border);
-						background-color: var(--bg-color);
-						color: var(--text-main);
-						border-radius: 4px;
-						box-sizing: border-box;
-				}
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
 
-				select:focus {
-						outline: none;
-						border-color: var(--accent);
-				}
-        
-        input:focus {
+        select:focus, input:focus {
             outline: none;
             border-color: var(--accent);
         }
@@ -148,7 +143,7 @@
             cursor: not-allowed;
         }
 
-        #result-box {
+        .result-box {
             margin-top: 20px;
             padding: 15px;
             border-radius: 4px;
@@ -180,6 +175,34 @@
             display: none;
             margin-top: 15px;
         }
+
+        .mission-title {
+            color: var(--accent);
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mission-brief {
+            font-style: italic;
+            color: #a5b4fc;
+            margin-bottom: 15px;
+            line-height: 1.4;
+            padding: 10px;
+            background-color: rgba(165, 180, 252, 0.05);
+            border-left: 3px solid #a5b4fc;
+        }
+        
+        .cargo-route {
+            background-color: rgba(255, 140, 0, 0.1);
+            border: 1px solid var(--accent);
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -191,7 +214,7 @@
     
     <div class="tabs">
         <button class="tab active" onclick="switchTab('random')">Random Location</button>
-        <button class="tab" onclick="switchTab('future')">Future Mode</button>
+        <button class="tab" onclick="switchTab('mission')">Mission Board</button>
     </div>
 
     <div id="mode-random" class="mode-content active">
@@ -201,15 +224,8 @@
         </div>
         
         <div class="form-group">
-            <label for="locationName">Current Location (Optional)</label>
-            <input type="text" id="locationName" placeholder="e.g., Jameson Memorial">
-            <div class="hint">Keeps duplicate location names contextually tied to your system.</div>
-        </div>
-
-				<div class="form-group">
             <label for="radius">Radius (Ly) *</label>
             <input type="number" id="radius" placeholder="e.g., 50" min="1" max="100" value="50" required>
-            <div class="hint">EDSM max radius is typically 100 Ly for sphere queries.</div>
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -233,11 +249,6 @@
                     <option value="Industrial">Industrial</option>
                     <option value="Military">Military</option>
                     <option value="Refinery">Refinery</option>
-					<option value="Tourism">Tourism</option>
-					<option value="Service">Service</option>
-					<option value="Terraforming">Terraforming</option>
-					<option value="Colony">Colony</option>
-					<option value="Resuce">Rescue</option>
                 </select>
             </div>
         </div>
@@ -249,19 +260,43 @@
                 <option value="Orbital">Any Orbital Station</option>
                 <option value="Planetary">Any Planetary Site</option>
                 <option value="Outpost">Outpost (Small/Med Pads)</option>
-                <option value="Starport">Large Starport (Coriolis, Orbis, Ocellus)</option>
+                <option value="Starport">Large Starport</option>
             </select>
         </div>
-        <button class="submit-btn" id="searchBtn" onclick="findRandomLocation()">Find Location</button>
+        <button class="submit-btn" id="searchBtn" onclick="executeSearch('random')">Find Location</button>
         
-        <div id="loader" class="loader">Querying EDSM Database... this might take a moment.</div>
-
-        <div id="result-box">
-            </div>
+        <div id="loader-random" class="loader">Querying EDSM Database...</div>
+        <div id="result-box-random" class="result-box"></div>
     </div>
 
-    <div id="mode-future" class="mode-content">
-        <p style="text-align: center; color: var(--text-muted);">Additional modes can be added here.</p>
+    <div id="mode-mission" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a randomized contract based on live galaxy data.</p>
+        
+        <div class="form-group">
+            <label for="missionSystem">Current System *</label>
+            <input type="text" id="missionSystem" placeholder="Where are you currently docked?" required>
+        </div>
+
+        <div class="form-group">
+            <label for="missionRadius">Max Mission Distance (Ly) *</label>
+            <input type="number" id="missionRadius" value="30" min="1" max="80" required>
+        </div>
+
+        <div class="form-group">
+            <label for="missionType">Contract Preference</label>
+            <select id="missionType">
+                <option value="Any">Any Available Contract</option>
+                <option value="Cargo">Cargo Trade Route (Live Market Data)</option>
+                <option value="Courier">Data Courier</option>
+                <option value="Assassination">Assassination Target</option>
+                <option value="Planetary Ops">Planetary Surface Ops</option>
+            </select>
+        </div>
+
+        <button class="submit-btn" id="missionBtn" onclick="executeSearch('mission')">Request Contract</button>
+        
+        <div id="loader-mission" class="loader">Contacting local faction reps...</div>
+        <div id="result-box-mission" class="result-box"></div>
     </div>
 </div>
 
@@ -282,16 +317,13 @@
         return array;
     }
 
-	async function findRandomLocation() {
-        const systemInput = document.getElementById('systemName').value.trim();
-        const radiusInput = document.getElementById('radius').value;
-        const filterAllegiance = document.getElementById('filterAllegiance').value;
-        const filterEconomy = document.getElementById('filterEconomy').value;
-        const filterType = document.getElementById('filterType').value;
-
-        const btn = document.getElementById('searchBtn');
-        const loader = document.getElementById('loader');
-        const resultBox = document.getElementById('result-box');
+    async function executeSearch(mode) {
+        const isMission = mode === 'mission';
+        const systemInput = document.getElementById(isMission ? 'missionSystem' : 'systemName').value.trim();
+        const radiusInput = document.getElementById(isMission ? 'missionRadius' : 'radius').value;
+        const btn = document.getElementById(isMission ? 'missionBtn' : 'searchBtn');
+        const loader = document.getElementById(`loader-${mode}`);
+        const resultBox = document.getElementById(`result-box-${mode}`);
 
         if (!systemInput || !radiusInput) {
             alert("Please enter both a System Name and a Radius.");
@@ -304,147 +336,44 @@
         resultBox.innerHTML = '';
 
         try {
-            // Step 1: EDSM for Coordinates
-            loader.innerText = '1/3: Getting jump coordinates from EDSM...';
-            const coordUrl = `https://www.edsm.net/api-v1/system?systemName=${encodeURIComponent(systemInput)}&showCoordinates=1`;
-            const coordRes = await fetch(coordUrl);
+            loader.innerText = '1/3: Getting jump coordinates...';
+            const coordRes = await fetch(`https://www.edsm.net/api-v1/system?systemName=${encodeURIComponent(systemInput)}&showCoordinates=1`);
             const coordData = await coordRes.json();
+            if (!coordData.name || !coordData.coords) throw new Error(`Could not find coordinates for "${systemInput}".`);
 
-            if (!coordData.name || !coordData.coords) {
-                throw new Error(`Could not find coordinates for "${systemInput}". Check spelling.`);
-            }
+            loader.innerText = '2/3: Plotting the surrounding sphere...';
+            const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: {}, sort: [{ distance: { direction: "asc" } }], size: 150,
+                    reference_coords: { x: coordData.coords.x, y: coordData.coords.y, z: coordData.coords.z }
+                })
+            });
 
-            // Step 2: Spansh for Radius Search 
-            loader.innerText = '2/3: Asking Spansh to plot the surrounding sphere...';
-            const spanshPayload = {
-                filters: {}, 
-                sort: [{ distance: { direction: "asc" } }],
-                size: 150, // Reduced to be kinder to Spansh servers
-                reference_coords: {
-                    x: coordData.coords.x,
-                    y: coordData.coords.y,
-                    z: coordData.coords.z
-                }
-            };
-
-			const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
-			    method: "POST",
-			    headers: { "Content-Type": "application/json" },
-			    body: JSON.stringify(spanshPayload)
-			});
-
-            // NEW: Catch Spansh Rate Limiting
-            if (spanshRes.status === 429) {
-                throw new Error("Spansh rate limit triggered! The database only allows a few heavy searches per minute. Give it 60 seconds to cool down and try again.");
-            }
-            if (!spanshRes.ok) {
-                throw new Error(`Spansh database error: ${spanshRes.status} ${spanshRes.statusText}`);
-            }
-
+            if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
             const spanshData = await spanshRes.json();
-            let spanshSystems = [];
+            let spanshSystems = spanshData.results || [];
 
             if (spanshData.reference) {
-                let attempts = 0;
-                while (attempts < 15) {
+                for (let attempts = 0; attempts < 15; attempts++) {
                     await new Promise(r => setTimeout(r, 1000));
-                    loader.innerText = `2/3: Waiting for Spansh job queue... (Attempt ${attempts + 1})`;
                     const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
-                    
-                    // NEW: Catch polling rate limit
-                    if (pollRes.status === 429) {
-                         throw new Error("Spansh rate limit triggered while loading! Give it 60 seconds to cool down.");
-                    }
-
                     const pollData = await pollRes.json();
-                    
                     if (pollData.status === 'ok' && pollData.results) {
                         spanshSystems = pollData.results;
                         break;
                     }
-                    attempts++;
                 }
-            } else if (spanshData.results) {
-                spanshSystems = spanshData.results;
             }
 
-            if (spanshSystems.length === 0) {
-                throw new Error("Spansh returned no data. The API might be down.");
-            }
+            const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > 0 && sys.population > 0));
+            if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
 
-            // FILTER STAGE 1: Spansh System-Level Filters
-            const maxDist = parseFloat(radiusInput);
-            const validSystems = spanshSystems.filter(sys => sys.distance <= maxDist);
-            let populated = validSystems.filter(sys => sys.population && sys.population > 0);
-            
-            // Apply Allegiance Filter
-            if (filterAllegiance) {
-                populated = populated.filter(sys => sys.allegiance === filterAllegiance);
-            }
-
-            let searchPool = populated.length > 0 ? populated : [];
-            
-            if (searchPool.length === 0) {
-                throw new Error(`No populated systems found matching your system filters within ${maxDist}Ly.`);
-            }
-
-            searchPool = shuffleArray(searchPool);
-
-            // Step 3: EDSM for Station Data
-            let foundLocation = null;
-            let targetSystem = null;
-            const maxAttempts = Math.min(searchPool.length, 10); 
-
-            for (let i = 0; i < maxAttempts; i++) {
-                const sys = searchPool[i];
-                const sysName = sys.name || "Unknown System";
-                loader.innerText = `3/3: Checking EDSM database for exact matches in ${sysName} (${i+1}/${maxAttempts})...`;
-
-                const stationUrl = `https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sysName)}`;
-                const stationRes = await fetch(stationUrl);
-                const stationData = await stationRes.json();
-
-                if (stationData.stations && stationData.stations.length > 0) {
-                    
-                    // FILTER STAGE 2: EDSM Station-Level Filters
-                    const validStations = stationData.stations.filter(station => {
-                        const type = station.type || "";
-                        const economy = station.economy || "";
-
-                        // Rule 1: No Fleet Carriers
-                        if (type.includes("Fleet Carrier")) return false;
-
-                        // Rule 2: Economy Match
-                        if (filterEconomy && !economy.includes(filterEconomy)) return false;
-
-                        // Rule 3: Type Match
-                        if (filterType) {
-                            const isPlanetary = station.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
-                            
-                            if (filterType === "Orbital" && isPlanetary) return false;
-                            if (filterType === "Planetary" && !isPlanetary) return false;
-                            if (filterType === "Outpost" && !type.includes("Outpost")) return false;
-                            if (filterType === "Starport" && !(type.includes("Coriolis") || type.includes("Orbis") || type.includes("Ocellus"))) return false;
-                        }
-
-                        return true;
-                    });
-
-                    // If a station passed all rules, pick it and exit!
-                    if (validStations.length > 0) {
-                        foundLocation = validStations[Math.floor(Math.random() * validStations.length)];
-                        targetSystem = { name: sysName, distance: sys.distance };
-                        break;
-                    }
-                }
-
-                await new Promise(r => setTimeout(r, 1000)); // Polite delay
-            }
-
-            if (foundLocation) {
-                displayResult(targetSystem, foundLocation);
+            if (isMission) {
+                await handleMissionLogic(searchPool, loader, resultBox);
             } else {
-                throw new Error("Checked 10 systems, but none had a station that matched all your exact filters. Try broadening your search or clicking 'Find Location' to re-roll.");
+                await handleRandomLogic(searchPool, loader, resultBox);
             }
 
         } catch (error) {
@@ -456,34 +385,182 @@
         }
     }
 
-    function displayResult(system, location) {
-        const resultBox = document.getElementById('result-box');
+    async function handleRandomLogic(searchPool, loader, resultBox) {
+        const filterAllegiance = document.getElementById('filterAllegiance').value;
+        const filterEconomy = document.getElementById('filterEconomy').value;
+        const filterType = document.getElementById('filterType').value;
+
+        let filteredPool = searchPool;
+        if (filterAllegiance) filteredPool = filteredPool.filter(sys => sys.allegiance === filterAllegiance);
+
+        for (let i = 0; i < Math.min(filteredPool.length, 10); i++) {
+            const sys = filteredPool[i];
+            loader.innerText = `3/3: Scanning ${sys.name}...`;
+            const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+            const stationData = await stationRes.json();
+
+            if (stationData.stations) {
+                const validStations = stationData.stations.filter(st => {
+                    const type = st.type || "";
+                    const econ = st.economy || "";
+                    if (type.includes("Fleet Carrier")) return false;
+                    if (filterEconomy && !econ.includes(filterEconomy)) return false;
+                    if (filterType) {
+                        const isPlan = st.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
+                        if (filterType === "Orbital" && isPlan) return false;
+                        if (filterType === "Planetary" && !isPlan) return false;
+                        if (filterType === "Outpost" && !type.includes("Outpost")) return false;
+                        if (filterType === "Starport" && !(type.includes("Coriolis") || type.includes("Orbis") || type.includes("Ocellus"))) return false;
+                    }
+                    return true;
+                });
+
+                if (validStations.length > 0) {
+                    const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                    resultBox.innerHTML = `
+                        <div class="result-item"><div class="result-label">System</div><div class="result-value">${sys.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${sys.distance.toFixed(2)} Ly)</span></div></div>
+                        <div class="result-item"><div class="result-label">Location Name</div><div class="result-value">${loc.name}</div></div>
+                        <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${loc.type || 'Unknown'}</div></div>
+                    `;
+                    resultBox.style.display = 'block';
+                    return;
+                }
+            }
+            await new Promise(r => setTimeout(r, 800));
+        }
+        throw new Error("No stations matched your exact filters. Try broadening the search.");
+    }
+
+    async function handleMissionLogic(searchPool, loader, resultBox) {
+        const prefType = document.getElementById('missionType').value;
+        const archetypes = [
+            { id: 'Courier', locFilter: 'Orbital' },
+            { id: 'Assassination', locFilter: '' },
+            { id: 'Planetary Ops', locFilter: 'Planetary' }
+        ];
         
-        const distToArrival = location.distanceToArrival ? `${location.distanceToArrival.toLocaleString()} Ls` : 'Unknown';
-        const bodyName = location.body && location.body.name ? location.body.name : 'Deep Space';
-        const distanceLy = system.distance !== undefined ? `${system.distance.toFixed(2)} Ly away` : 'Unknown Ly';
+        let selectedType = prefType;
+        if (prefType === 'Any') {
+            const allTypes = ['Cargo', 'Courier', 'Assassination', 'Planetary Ops'];
+            selectedType = allTypes[Math.floor(Math.random() * allTypes.length)];
+        }
+
+        // CARGO TRADE ROUTE LOGIC
+        if (selectedType === 'Cargo') {
+            loader.innerText = `3/3: Searching local markets for profitable trade routes...`;
+            
+            for (let i = 0; i < Math.min(searchPool.length, 8); i++) {
+                const sourceSys = searchPool[i];
+                const sourceStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sourceSys.name)}`);
+                const sourceStationsData = await sourceStationsRes.json();
+                
+                if (!sourceStationsData.stations) continue;
+                
+                const validSourceStations = sourceStationsData.stations.filter(s => s.haveMarket && !s.type.includes("Fleet Carrier"));
+                if (validSourceStations.length === 0) continue;
+
+                const sourceStation = validSourceStations[Math.floor(Math.random() * validSourceStations.length)];
+                
+                const marketRes = await fetch(`https://www.edsm.net/api-system-v1/stations/market?systemName=${encodeURIComponent(sourceSys.name)}&stationName=${encodeURIComponent(sourceStation.name)}`);
+                const marketData = await marketRes.json();
+
+                if (marketData.commodities && marketData.commodities.length > 0) {
+                    const inStock = marketData.commodities.filter(c => c.stock > 10);
+                    if (inStock.length === 0) continue;
+                    
+                    const chosenCommodity = inStock[Math.floor(Math.random() * inStock.length)];
+
+                    // Now find a destination that DEMANDS this commodity
+                    for (let j = i + 1; j < Math.min(searchPool.length, 12); j++) {
+                        const destSys = searchPool[j];
+                        const destStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(destSys.name)}`);
+                        const destStationsData = await destStationsRes.json();
+                        
+                        if (!destStationsData.stations) continue;
+                        const validDestStations = destStationsData.stations.filter(s => s.haveMarket && !s.type.includes("Fleet Carrier"));
+                        if (validDestStations.length === 0) continue;
+
+                        const destStation = validDestStations[Math.floor(Math.random() * validDestStations.length)];
+                        const destMarketRes = await fetch(`https://www.edsm.net/api-system-v1/stations/market?systemName=${encodeURIComponent(destSys.name)}&stationName=${encodeURIComponent(destStation.name)}`);
+                        const destMarketData = await destMarketRes.json();
+
+                        if (destMarketData.commodities) {
+                            const demandsIt = destMarketData.commodities.find(c => c.id === chosenCommodity.id && c.demand > 0);
+                            if (demandsIt) {
+                                renderCargoBriefing(sourceSys, sourceStation, destSys, destStation, chosenCommodity, resultBox);
+                                return;
+                            }
+                        }
+                        await new Promise(r => setTimeout(r, 500));
+                    }
+                }
+            }
+            throw new Error("Could not find a matching supply/demand route in the current radius. Try increasing the distance or selecting a different mission type.");
+        } 
+        // STANDARD MISSION LOGIC
+        else {
+            const archetype = archetypes.find(a => a.id === selectedType);
+            for (let i = 0; i < Math.min(searchPool.length, 10); i++) {
+                const sys = searchPool[i];
+                loader.innerText = `3/3: Locating target for ${selectedType} contract...`;
+                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+                const stationData = await stationRes.json();
+
+                if (stationData.stations) {
+                    const validStations = stationData.stations.filter(st => {
+                        const type = st.type || "";
+                        if (type.includes("Fleet Carrier")) return false;
+                        const isPlan = st.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
+                        if (archetype.locFilter === "Orbital" && isPlan) return false;
+                        if (archetype.locFilter === "Planetary" && !isPlan) return false;
+                        return true;
+                    });
+
+                    if (validStations.length > 0) {
+                        const loc = validStations[Math.floor(Math.random() * validStations.length)];
+                        renderStandardBriefing(sys, loc, selectedType, resultBox);
+                        return;
+                    }
+                }
+                await new Promise(r => setTimeout(r, 800));
+            }
+            throw new Error(`Could not generate a ${selectedType} contract in this radius. Try widening your search.`);
+        }
+    }
+
+    function renderCargoBriefing(srcSys, srcStation, destSys, destStation, commodity, resultBox) {
+        const units = Math.floor(Math.random() * 50) + 15;
+        resultBox.innerHTML = `
+            <div class="mission-title">Contract: Independent Cargo Run</div>
+            <div class="mission-brief">"Commander, we've identified a profitable supply chain gap. Procure the requested goods from the supplier and haul them to the designated market. Market fluctuations are your only risk."</div>
+            
+            <div class="cargo-route">
+                <div class="result-item"><div class="result-label">Step 1: Buy Commodity</div><div class="result-value">${commodity.name} <span style="color:var(--text-main); font-size:0.9rem; font-weight:normal;">(Approx ${commodity.buyPrice} CR/unit)</span></div></div>
+                <div class="result-item"><div class="result-label">Supplier Location</div><div class="result-value" style="color: #c9d1d9;">${srcStation.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${srcSys.name})</span></div></div>
+            </div>
+
+            <div style="text-align: center; color: var(--text-muted); margin: 10px 0;">▼ DELIVER TO ▼</div>
+
+            <div class="cargo-route" style="margin-top: 0;">
+                <div class="result-item"><div class="result-label">Destination Market</div><div class="result-value">${destStation.name}</div></div>
+                <div class="result-item"><div class="result-label">Target System</div><div class="result-value">${destSys.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${destSys.distance.toFixed(2)} Ly)</span></div></div>
+            </div>
+        `;
+        resultBox.style.display = 'block';
+    }
+
+    function renderStandardBriefing(system, location, type, resultBox) {
+        let briefing = "";
+        if (type === 'Courier') briefing = `Run a secure data packet to local contacts. Head to <strong>${location.name}</strong> in the <strong>${system.name}</strong> system. Keep your hull intact and avoid scans.`;
+        if (type === 'Assassination') briefing = `Bounty issued. We've tracked a hostile target to the <strong>${system.name}</strong> system. Last known trajectory had them operating near <strong>${location.name}</strong>. Engage and destroy.`;
+        if (type === 'Planetary Ops') briefing = `Surface recon required. Proceed to the planetary site <strong>${location.name}</strong> in <strong>${system.name}</strong>. Interface with the local datalink and extract the operational logs. SRV recommended.`;
 
         resultBox.innerHTML = `
-            <div class="result-item">
-                <div class="result-label">System</div>
-                <div class="result-value">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${distanceLy})</span></div>
-            </div>
-            <div class="result-item">
-                <div class="result-label">Location Name</div>
-                <div class="result-value">${location.name}</div>
-            </div>
-            <div class="result-item">
-                <div class="result-label">Location Type</div>
-                <div class="result-value" style="color: #c9d1d9;">${location.type || 'Unknown'}</div>
-            </div>
-            <div class="result-item">
-                <div class="result-label">Distance from Jump Point</div>
-                <div class="result-value" style="color: #c9d1d9;">${distToArrival}</div>
-            </div>
-            <div class="result-item">
-                <div class="result-label">Orbiting / Situated On</div>
-                <div class="result-value" style="color: #c9d1d9;">${bodyName}</div>
-            </div>
+            <div class="mission-title">Contract: ${type}</div>
+            <div class="mission-brief">"${briefing}"</div>
+            <div class="result-item"><div class="result-label">Target System</div><div class="result-value">${system.name} <span style="font-size: 0.8rem; color: var(--text-muted);">(${system.distance.toFixed(2)} Ly)</span></div></div>
+            <div class="result-item"><div class="result-label">Target Location</div><div class="result-value">${location.name}</div></div>
+            <div class="result-item"><div class="result-label">Location Type</div><div class="result-value" style="color: #c9d1d9;">${location.type || 'Unknown'}</div></div>
         `;
         resultBox.style.display = 'block';
     }
