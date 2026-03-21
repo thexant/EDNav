@@ -695,6 +695,10 @@
             throw new Error("Could not find a matching supply/demand route in the current radius.");
         } else if (selectedType === 'Smuggling') {
             loader.innerText = `3/3: Searching the underworld for illicit opportunities...`;
+            
+            // Common illicit goods in Elite Dangerous
+            const illicitGoods = ['Narcotics', 'Personal Weapons', 'Battle Weapons', 'Slaves', 'Imperial Slaves', 'Tobacco', 'Bootleg Liquor', 'Combat Stabilisers', 'Nerve Agents', 'Landmines'];
+
             for (let i = 0; i < Math.min(searchPool.length, 12); i++) {
                 const sourceSys = searchPool[i];
                 const sourceStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sourceSys.name)}`);
@@ -703,37 +707,51 @@
                 if (!sourceStationsData.stations) continue;
                 
                 const validSourceStations = sourceStationsData.stations.filter(s => {
-                    if ((s.type || "").includes("Fleet Carrier")) return false;
+                    // Must have a market and not be a Fleet Carrier
+                    if ((s.type || "").includes("Fleet Carrier") || !s.haveMarket) return false;
                     const gov = s.government || sourceSys.government || "";
-                    return gov.includes('Anarchy') || gov.includes('Dictatorship') || s.type === 'Outpost';
+                    return gov.includes('Anarchy') || gov.includes('Dictatorship');
                 });
                 
                 if (validSourceStations.length === 0) continue;
+                
+                // Check the market for illicit goods in stock
                 const sourceStation = validSourceStations[Math.floor(Math.random() * validSourceStations.length)];
+                const sourceMarketRes = await fetch(`https://www.edsm.net/api-system-v1/stations/market?systemName=${encodeURIComponent(sourceSys.name)}&stationName=${encodeURIComponent(sourceStation.name)}`);
+                const sourceMarketData = await sourceMarketRes.json();
 
-                for (let j = 0; j < Math.min(searchPool.length, 15); j++) {
-                    if (i === j) continue; 
-                    const destSys = searchPool[j];
-                    const destStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(destSys.name)}`);
-                    const destStationsData = await destStationsRes.json();
+                if (sourceMarketData.commodities && sourceMarketData.commodities.length > 0) {
+                    const availableIllicit = sourceMarketData.commodities.filter(c => illicitGoods.includes(c.name) && c.stock > 0);
                     
-                    if (!destStationsData.stations) continue;
-                    
-                    const validDestStations = destStationsData.stations.filter(s => {
-                        if ((s.type || "").includes("Fleet Carrier")) return false;
-                        return s.otherServices && s.otherServices.includes("Black Market");
-                    });
+                    if (availableIllicit.length > 0) {
+                        const chosenCommodity = availableIllicit[Math.floor(Math.random() * availableIllicit.length)];
 
-                    if (validDestStations.length > 0) {
-                        const destStation = validDestStations[Math.floor(Math.random() * validDestStations.length)];
-                        const routeDistance = calcDistance(sourceSys, destSys);
-                        renderSmugglingBriefing(sourceSys, sourceStation, destSys, destStation, routeDistance, resultBox);
-                        return;
+                        // Now find a destination with a black market
+                        for (let j = 0; j < Math.min(searchPool.length, 15); j++) {
+                            if (i === j) continue; 
+                            const destSys = searchPool[j];
+                            const destStationsRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(destSys.name)}`);
+                            const destStationsData = await destStationsRes.json();
+                            
+                            if (!destStationsData.stations) continue;
+                            
+                            const validDestStations = destStationsData.stations.filter(s => {
+                                if ((s.type || "").includes("Fleet Carrier")) return false;
+                                return s.otherServices && s.otherServices.includes("Black Market");
+                            });
+
+                            if (validDestStations.length > 0) {
+                                const destStation = validDestStations[Math.floor(Math.random() * validDestStations.length)];
+                                const routeDistance = calcDistance(sourceSys, destSys);
+                                renderSmugglingBriefing(sourceSys, sourceStation, destSys, destStation, chosenCommodity, routeDistance, resultBox);
+                                return;
+                            }
+                            await new Promise(r => setTimeout(r, 400));
+                        }
                     }
-                    await new Promise(r => setTimeout(r, 400));
                 }
             }
-            throw new Error("Could not plot a covert route. Ensure your radius includes Anarchy systems and Black Markets.");
+            throw new Error("Could not plot a covert route. Ensure your radius includes Anarchy systems with black market demands.");
         } else {
             const archetype = archetypes.find(a => a.id === selectedType);
             let routeStops = [];
@@ -966,20 +984,20 @@ async function handleTourismLogic(searchPool, loader, resultBox, originCoordData
         resultBox.style.display = 'block';
     }
 
-    function renderSmugglingBriefing(srcSys, srcStation, destSys, destStation, routeDistance, resultBox) {
+    function renderSmugglingBriefing(srcSys, srcStation, destSys, destStation, commodity, routeDistance, resultBox) {
         resultBox.innerHTML = `
             <div class="mission-title" style="color: #ff5555; border-bottom-color: #ff5555;">Contract: Covert Operations</div>
-            <div class="mission-brief" style="color: #ffb86c; background-color: rgba(255, 184, 108, 0.05); border-left-color: #ffb86c;">"Keep this off the main comms, Commander. We need sensitive cargo moved quietly. Procure illicit goods from our contact, then slip it into the destination's black market. Avoid system authority scans at all costs."</div>
+            <div class="mission-brief" style="color: #ffb86c; background-color: rgba(255, 184, 108, 0.05); border-left-color: #ffb86c;">"Keep this off the main comms, Commander. We need sensitive cargo moved quietly. Procure the specified goods from our contact in the Anarchy system, then slip it into the destination's black market. Avoid system authority scans at all costs."</div>
             
             <div class="cargo-route" style="border-color: #ff5555; background-color: rgba(255, 85, 85, 0.05);">
-                <div class="result-item"><div class="result-label" style="color: #ff5555;">Step 1: Procure Illicit Goods</div><div class="result-value">Narcotics, Weapons, or Slaves <span style="color:var(--text-main); font-size:0.9rem; font-weight:normal;">(Local supply permitting)</span></div></div>
+                <div class="result-item"><div class="result-label" style="color: #ff5555;">Step 1: Procure Illicit Goods</div><div class="result-value">${commodity.name} <span style="color:var(--text-main); font-size:0.9rem; font-weight:normal;">(Approx ${commodity.buyPrice} CR/unit)</span></div></div>
                 <div class="result-item">
                     <div class="result-label">Shady Supplier System</div>
                     <div class="result-value flex-val">${srcSys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${srcSys.distance.toFixed(2)} Ly away)</span>
                         <button class="copy-btn" onclick="copyToClipboard('${srcSys.name}', this)" title="Copy System Name">📋</button>
                     </div>
                 </div>
-                <div class="result-item"><div class="result-label">Supplier Location</div><div class="result-value" style="color: #c9d1d9;">${srcStation.name} <span style="color: #ffb86c; font-size: 0.85rem; font-weight: normal;">[${srcStation.government || 'Anarchy'} / ${srcStation.type || 'Unknown'}]</span></div></div>
+                <div class="result-item"><div class="result-label">Supplier Location</div><div class="result-value" style="color: #c9d1d9;">${srcStation.name} <span style="color: #ffb86c; font-size: 0.85rem; font-weight: normal;">[${srcStation.government || 'Anarchy'} / Market Available]</span></div></div>
             </div>
 
             <div style="text-align: center; color: #ff5555; margin: 10px 0; font-weight: bold;">▼ SMUGGLE TO ▼</div>
