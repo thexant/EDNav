@@ -1291,6 +1291,57 @@
                     (sys, loc) => [`The power grid is failing and requires emergency micro-controllers.`, `Source the high-tech components and rush them to the surface settlement at <strong>${loc}</strong> in <strong>${sys}</strong>.`],
                     (sys, loc) => [`The system is finally recovering and throwing a local celebration.`, `Procure luxury goods or rare commodities and deliver them to <strong>${loc}</strong> in <strong>${sys}</strong> to finalize the relief effort.`]
                 ]
+            },
+            {
+                theme: 'Xenological Survey Expedition',
+                reqShip: ['Explorer', 'Multi', 'Passenger'],
+                desc: "An academic institute needs a reliable pilot to chart anomalous readings and recover ancient artifacts from unmapped sectors.",
+                phases: [
+                    (sys, loc) => [`Jump to the <strong>${sys}</strong> system.`, `Scan the nav beacon near <strong>loc</strong> to calibrate your astrometrics for a deep space survey.`],
+                    (sys, loc) => [`Anomalous gravitational signals detected in <strong>${sys}</strong>.`, `Use a Detailed Surface Scanner to map the planetary bodies near <strong>loc</strong> and isolate the signal origin.`],
+                    (sys, loc) => [`Biological or geological anomalies confirmed on the surface in <strong>${sys}</strong>.`, `Deploy an SRV at <strong>loc</strong> and sample the local flora or geological features for the institute.`],
+                    (sys, loc) => [`A specialist from the institute needs to examine the data in the field.`, `Pick up the xenologist from the passenger lounge at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The specialist has decoded a bearing to an ancient structural anomaly.`, `Travel to <strong>${sys}</strong> and investigate the surface ruins near <strong>loc</strong>. Keep your shields up.`],
+                    (sys, loc) => [`We need physical evidence to back up the telemetry.`, `Scavenge the site near <strong>loc</strong> in <strong>${sys}</strong> for ancient relics or guardian technology.`],
+                    (sys, loc) => [`Unregistered vessels have tracked your emissions. Grave robbers.`, `Evade interdiction or destroy the pursuers hunting your cargo in <strong>${sys}</strong> near <strong>loc</strong>.`],
+                    (sys, loc) => [`The data is too sensitive to keep solely on your ship's local blackbox.`, `Upload the encrypted telemetry logs to the secure communications relay at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The artifacts must be delivered to the institute's primary laboratory.`, `Transport the relics safely to the research facility at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The institute is holding a symposium on your findings.`, `Return to <strong>loc</strong> in <strong>${sys}</strong> for your payment and a commendation from the scientific board.`]
+                ]
+            },
+            {
+                theme: 'VIP Defection & Extraction',
+                reqShip: ['Passenger', 'Smuggler', 'CombatLight', 'Multi'],
+                desc: "A high-ranking political dissident needs to be smuggled out of hostile territory before local authorities silence them.",
+                phases: [
+                    (sys, loc) => [`Make contact with our undercover handler in <strong>${sys}</strong>.`, `Dock at <strong>loc</strong> and retrieve the encrypted rendezvous coordinates from the local station network.`],
+                    (sys, loc) => [`The dissident's transport was ambushed en route.`, `Jump to <strong>${sys}</strong> and search the degraded emission debris fields near <strong>loc</strong> for their distress beacon.`],
+                    (sys, loc) => [`They survived and are hiding in a nearby planetary settlement.`, `Land at <strong>loc</strong> in <strong>${sys}</strong> to quietly extract the VIP into your passenger cabins.`],
+                    (sys, loc) => [`System authorities are locking down the sector.`, `Smuggle the VIP past the blockade patrols and jump out of <strong>${sys}</strong> near <strong>loc</strong> without being scanned.`],
+                    (sys, loc) => [`The VIP was injured in the ambush and needs off-the-books medical supplies.`, `Source progenitor cells or combat stabilisers from the black market at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`Bounty hunters have picked up the VIP's trail.`, `Shake off the hunters pursuing you through the <strong>${sys}</strong> system near <strong>loc</strong>.`],
+                    (sys, loc) => [`We need forged transit permits to cross the border securely.`, `Meet our counterfeiter at the outpost <strong>loc</strong> in <strong>${sys}</strong> to secure the documents.`],
+                    (sys, loc) => [`The authorities have deployed an elite wing to intercept your ship.`, `Draw them away from the VIP's intended route and engage them in <strong>${sys}</strong> near <strong>loc</strong>.`],
+                    (sys, loc) => [`The border is clear, but we need a secure, trusted drop point.`, `Deliver the VIP to the allied social club safehouse at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The defection is complete, but the handlers need your operational data wiped.`, `Head to <strong>loc</strong> in <strong>${sys}</strong> to purge your nav computer and collect your hush money.`]
+                ]
+            },
+            {
+                theme: 'Strategic Resource Acquisition',
+                reqShip: ['Industrial', 'TransportHeavy', 'Multi'],
+                desc: "A massive industrial expansion is underway. We need a foreman to prospect, mine, and secure vital resources for the fleet.",
+                phases: [
+                    (sys, loc) => [`The corporation needs high-yield pristine reserves.`, `Travel to <strong>${sys}</strong> and fire a Detailed Surface Scanner at the rings near <strong>loc</strong> to locate material hotspots.`],
+                    (sys, loc) => [`Initial surveys look promising. We need physical core samples.`, `Deploy prospector limpets in the rings of <strong>${sys}</strong> near <strong>loc</strong> and mine the initial fragments.`],
+                    (sys, loc) => [`Rival prospectors are encroaching on our claim.`, `Run them off or destroy their mining vessels in <strong>${sys}</strong> near <strong>loc</strong> to secure the perimeter.`],
+                    (sys, loc) => [`We need specialized seismic charges to break the motherlodes.`, `Procure industrial munitions from the outfitting armory at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`Time to crack some rocks.`, `Return to the rings in <strong>${sys}</strong> near <strong>loc</strong> and detonate asteroids with fissures to harvest rare minerals.`],
+                    (sys, loc) => [`Your hold is full, and local pirates have noticed the payload.`, `Survive the pirate ambush in the rings of <strong>${sys}</strong> near <strong>loc</strong>. Keep your cargo hatch secure.`],
+                    (sys, loc) => [`The refinery needs the raw materials immediately to meet the quota.`, `Deliver the freshly mined ore to the processing facility at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`The refinery machinery is breaking down from the heavy workload.`, `Source auto-fabricators and micro-controllers to repair the drills at <strong>loc</strong> in <strong>${sys}</strong>.`],
+                    (sys, loc) => [`A corporate megaship has arrived to collect the refined alloys.`, `Transport the finished metals to the megaship in <strong>${sys}</strong> near <strong>loc</strong>.`],
+                    (sys, loc) => [`The quota is met. The expansion is a success.`, `Dock at the administrative center <strong>loc</strong> in <strong>${sys}</strong> to finalize the contract and claim your dividends.`]
+                ]
             }
         ];
 
