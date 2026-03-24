@@ -129,7 +129,6 @@
             padding-bottom: 5px;
         }
         
-        /* --- Updated Tab Styles for Vertical Layout --- */
         .tab {
             padding: 12px 15px;
             text-align: left;
@@ -289,10 +288,8 @@
 
         .checkbox-label input[type="checkbox"] { margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--purple); }
         
-        /* Specific accent color overrides */
         .checkbox-group.narrative-fleet input[type="checkbox"] { accent-color: var(--info); }
 
-        /* Narrative Specific Styles */
         .chapter-container { display: none; animation: fadeIn 0.5s ease-in; }
         .chapter-container.active { display: block; }
         
@@ -365,8 +362,10 @@
         <button class="tab" data-target="random" onclick="switchTab('random')">Random</button>
         <button class="tab active" data-target="mission" onclick="switchTab('mission')">Mission Board</button>
         <button class="tab" data-target="tourism" onclick="switchTab('tourism')">Tourism</button>
+        <button class="tab" data-target="locator" onclick="switchTab('locator')" style="color: var(--success);">Roleplay Locator</button>
         <button class="tab" data-target="narrative" onclick="switchTab('narrative')" style="color: var(--info);">Campaigns</button>
     </div>
+
     <div id="mode-random" class="mode-content">
         <div class="form-group">
             <label for="systemName">Current System *</label>
@@ -525,6 +524,79 @@
         <div id="result-box-tourism" class="result-box"></div>
     </div>
 
+    <div id="mode-locator" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Scan local networks for specific facilities, contacts, or points of interest to track down your targets.</p>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label for="locatorSystem">Current System *</label>
+                <input type="text" id="locatorSystem" placeholder="e.g., Lave" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="locatorStation">Current Station / Dock *</label>
+                <input type="text" id="locatorStation" placeholder="e.g., Lave Station" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="locatorTarget">Target Query (What are you looking for?) *</label>
+            <input type="text" id="locatorTarget" placeholder="e.g., A good bowl of Lavian noodles, an underworld fence" required>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 2;">
+                <label for="locatorCategory">Category *</label>
+                <select id="locatorCategory">
+                    <option value="lodging">Pilot Lodgings & Basic Amenities</option>
+                    <option value="dining">Fine Dining & High-End Restaurants</option>
+                    <option value="dive">Dive Bars & Cantinas</option>
+                    <option value="leisure">Leisure & Entertainment Districts</option>
+                    <option value="chopshop">Chop Shops & Underworld Contacts</option>
+                    <option value="medical">Specialized Medical Facilities</option>
+                    <option value="military">Mercenary Hubs & Military Surplus</option>
+                    <option value="blackmarket">Smuggler Contacts / Fences</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="locatorRarity">Rarity (1-100) *</label>
+                <input type="number" id="locatorRarity" value="50" min="1" max="100" title="1 is incredibly rare, 100 is very common" required>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div style="flex: 1; min-width: 90px;">
+                <label for="locatorRadius">Radius (Ly) *</label>
+                <input type="number" id="locatorRadius" value="30" min="1" max="150" required>
+            </div>
+            <div style="flex: 1;">
+                <label for="locatorAllegiance">Allegiance</label>
+                <select id="locatorAllegiance">
+                    <option value="">Any</option>
+                    <option value="Alliance">Alliance</option>
+                    <option value="Empire">Empire</option>
+                    <option value="Federation">Federation</option>
+                    <option value="Independent">Independent</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label for="locatorGovernment">Government</label>
+                <select id="locatorGovernment">
+                    <option value="">Any</option>
+                    <option value="Anarchy">Anarchy</option>
+                    <option value="Corporate">Corporate</option>
+                    <option value="Democracy">Democracy</option>
+                    <option value="Dictatorship">Dictatorship</option>
+                    <option value="Prison Colony">Prison Colony</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="submit-btn" id="locatorBtn" onclick="executeSearch('locator')" style="background-color: var(--success); color: #000;">Initialize Network Sweep</button>
+        
+        <div id="loader-locator" class="loader">Splicing into local routing hubs...</div>
+        <div id="result-box-locator" class="result-box"></div>
+    </div>
+
     <div id="mode-narrative" class="mode-content">
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a multi-stage operational campaign. Faction handlers will provide step-by-step instructions.</p>
         
@@ -595,6 +667,7 @@
             stopsGroup.style.opacity = '1';
         }
     });
+    
     function toggleMenu() {
         document.getElementById('dropdown-menu').classList.toggle('open');
     }
@@ -602,16 +675,16 @@
     function closeMenu() {
         document.getElementById('dropdown-menu').classList.remove('open');
     }
+    
     function switchTab(tabId) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
         
-        // Use data-target to find the correct tab safely
         document.querySelector(`.tab[data-target="${tabId}"]`).classList.add('active');
         document.getElementById('mode-' + tabId).classList.add('active');
         
         applyShipDirectives();
-        closeMenu(); // Auto-close the menu after making a selection
+        closeMenu(); 
     }
 
     // --- Ship Profile Logic ---
@@ -620,11 +693,9 @@
         const missionSelect = document.getElementById('missionType');
         const tourismCheckboxes = document.querySelectorAll('#tourismCheckboxes input[type="checkbox"]');
         
-        // Reset all
         Array.from(missionSelect.options).forEach(opt => opt.disabled = false);
         tourismCheckboxes.forEach(cb => { cb.disabled = false; cb.parentElement.style.opacity = '1'; });
 
-        // Map allowed missions to ship archetypes
         const allowedMissions = {
             'Multi': ['Any', 'Cargo', 'Smuggling', 'Combat', 'Freelance', 'Mining', 'Rescue', 'Salvage', 'Surface'],
             'CombatLight': ['Combat', 'Freelance', 'Surface'],
@@ -640,19 +711,16 @@
 
         const validMissions = allowedMissions[profile] || allowedMissions['Multi'];
 
-        // Force a valid selection if the current one is disabled by the new ship profile
         if (!validMissions.includes(missionSelect.value) && missionSelect.value !== 'Any') {
             missionSelect.value = validMissions[0]; 
         }
 
-        // Disable incompatible dropdown options
         Array.from(missionSelect.options).forEach(opt => {
             if (!validMissions.includes(opt.value) && opt.value !== 'Any') {
                 opt.disabled = true;
             }
         });
 
-        // Tourism Constraints: Industrial and Heavy Combat ships shouldn't be running luxury tours
         if (['CombatLight', 'CombatHeavy', 'TransportHeavy', 'Industrial'].includes(profile)) {
             tourismCheckboxes.forEach(cb => {
                 if (cb.value === 'Luxury' || cb.value === 'Beacons') { 
@@ -663,9 +731,10 @@
         
         missionSelect.dispatchEvent(new Event('change'));
     }
+
     // --- Scramble Protocol ---
     function executeScrambleProtocol() {
-        const tabs = ['mission', 'tourism', 'narrative'];
+        const tabs = ['mission', 'tourism', 'narrative', 'locator'];
         const randomTab = tabs[Math.floor(Math.random() * tabs.length)];
         switchTab(randomTab);
 
@@ -686,13 +755,20 @@
             document.getElementById('narrativeRadius').value = Math.floor(Math.random() * 60) + 40;
             const lengths = ['1', '2', '3'];
             document.getElementById('narrativeLength').value = lengths[Math.floor(Math.random() * lengths.length)];
+        } else if (randomTab === 'locator') {
+            document.getElementById('locatorRadius').value = Math.floor(Math.random() * 50) + 20;
+            const catOptions = Array.from(document.getElementById('locatorCategory').options);
+            document.getElementById('locatorCategory').value = catOptions[Math.floor(Math.random() * catOptions.length)].value;
+            document.getElementById('locatorRarity').value = Math.floor(Math.random() * 80) + 20; // 20-100
+            document.getElementById('locatorTarget').value = "Rumors and Leads";
+            document.getElementById('locatorStation').value = "Docking Bay 42"; // Placeholder
         }
 
-        // Auto-fill a default system if empty to make Scramble truly 1-click
         const systemIds = {
             'mission': 'missionSystem',
             'tourism': 'tourismSystem',
-            'narrative': 'narrativeSystem'
+            'narrative': 'narrativeSystem',
+            'locator': 'locatorSystem'
         };
         const activeSysInput = document.getElementById(systemIds[randomTab]);
         if(!activeSysInput.value.trim()) activeSysInput.value = "Sol";
@@ -775,6 +851,10 @@
             systemInputId = 'narrativeSystem';
             radiusInputId = 'narrativeRadius';
             btnId = 'narrativeBtn';
+        } else if (mode === 'locator') {
+            systemInputId = 'locatorSystem';
+            radiusInputId = 'locatorRadius';
+            btnId = 'locatorBtn';
         }
 
         const systemInput = document.getElementById(systemInputId).value.trim();
@@ -802,7 +882,10 @@
             loader.innerText = '2/3: Plotting the surrounding sphere...';
             let spanshSystems = await fetchSpanshSphere(coordData.coords, 150);
 
-            const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > 0 && sys.population > 0));
+            // Keep distance > 0 unless it's the locator which should be able to check current system
+            let distThreshold = mode === 'locator' ? -1 : 0;
+            const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > distThreshold && sys.population > 0));
+            
             if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
 
             if (mode === 'mission') {
@@ -811,6 +894,8 @@
                 await handleTourismLogic(searchPool, loader, resultBox, coordData, parseFloat(radiusInput)); 
             } else if (mode === 'narrative') {
                 await handleNarrativeLogic(searchPool, loader, resultBox, coordData);
+            } else if (mode === 'locator') {
+                await handleLocatorLogic(searchPool, loader, resultBox, systemInput);
             } else {
                 await handleRandomLogic(searchPool, loader, resultBox);
             }
@@ -1067,7 +1152,6 @@
             throw new Error("Please select at least one Tour Package type.");
         }
 
-        // FIX 1: Changed Math.max(2) to Math.max(1) so it respects a 1-stop input
         const stopsCount = Math.min(5, Math.max(1, parseInt(document.getElementById('tourismStops').value) || 3));
         const allowExpand = document.getElementById('tourismExpand').checked;
         
@@ -1095,23 +1179,16 @@
                 const sys = poolCopy[i];
                 const legDist = calcDistance(currentReferenceSystem, sys); 
         
-                // FIX 2: Shuffle types and test ALL of them against the system before discarding it
                 let typesToTry = shuffleArray([...selectedTypes]);
                 
-                // NEW: Dynamic Load Balancing for Mixed Tours
                 if (selectedTypes.length > 1) {
-                    // Calculate a fair-share cap (e.g., 3 stops / 3 types = max 1 per type)
                     const maxPerType = Math.ceil(stopsCount / selectedTypes.length);
-                    
-                    // Remove types that have already hit their cap
                     let underCapTypes = typesToTry.filter(t => {
                         const count = routeStops.filter(s => s.stopType === t).length;
                         return count < maxPerType;
                     });
                     
                     if (underCapTypes.length > 0) typesToTry = underCapTypes;
-                    
-                    // Sort remaining to prioritize the least-used types first
                     typesToTry.sort((a, b) => {
                         const countA = routeStops.filter(s => s.stopType === a).length;
                         const countB = routeStops.filter(s => s.stopType === b).length;
@@ -1119,7 +1196,7 @@
                     });
                 }
 
-                let stationDataCache = null; // Cache to prevent hitting the API 4 times for the same system
+                let stationDataCache = null; 
                 let systemMatched = false;
 
                 for (let currentType of typesToTry) {
@@ -1178,14 +1255,13 @@
                                         stopType: currentType, legDistance: legDist, isExpanded: isExpandedSearch 
                                     });
                                     systemMatched = true;
-                                    break; // Break types loop since we found a stop for this system
+                                    break; 
                                 }
                             }
                         } catch (e) {
                             console.error("Body fetch error", e);
                         }
                     } else {
-                        // All other types require Station Data. Fetch once per system via cache.
                         if (!stationDataCache) {
                             loader.innerText = `3/3: Booking itinerary for waypoint ${step + 1} (${sys.name})...`;
                             try {
@@ -1209,12 +1285,8 @@
                                 } else if (currentType === 'Luxury') {
                                     isValid = econ.includes("Tourism") || type.includes("Orbis") || type.includes("Ocellus");
                                 } else if (currentType === 'Adventure') {
-                                    // 1. Restrict to surface locations only (removes standard orbital outposts)
                                     const isSurface = st.isPlanetary || type.includes("Planetary") || type.includes("Settlement");
-                                    
-                                    // 2. Require a "rugged" frontier economy to make them rarer and more thematic
                                     const isRugged = ['Extraction', 'Refinery', 'Military', 'Colony', 'Terraforming'].some(e => econ.includes(e));
-                                    
                                     isValid = isSurface && isRugged;
                                 } else if (currentType === 'GrandTour') {
                                     isValid = (econ && econ !== "None" && econ !== "Unknown");
@@ -1245,7 +1317,7 @@
                                     isExpanded: isExpandedSearch 
                                 });
                                 systemMatched = true;
-                                break; // Break types loop since we found a stop for this system
+                                break; 
                             }
                         }
                     }
@@ -1257,10 +1329,10 @@
                     currentReferenceSystem = sys; 
                     isExpandedSearch = false; 
                     expandAttempts = 0; 
-                    break; // Break the system loop and move to the next step
+                    break; 
                 }
 
-                await new Promise(r => setTimeout(r, 600)); // Slightly reduced timeout due to better caching
+                await new Promise(r => setTimeout(r, 600)); 
             }
 
             if (!foundStop) {
@@ -1293,10 +1365,9 @@
         throw new Error(`Could not construct an itinerary with ${stopsCount} stops. Try increasing the base radius, selecting more packages, or turning on Auto-Expand.`);
     }
 
-    // 4. Narrative Logic (Multi-Step Chapters)
+    // 4. Narrative Logic
     async function handleNarrativeLogic(searchPool, loader, resultBox, startSys) {
         const lengthCount = parseInt(document.getElementById('narrativeLength').value) || 1;
-        const phasesPerChapter = 4; // Bundles 4 phases (8 steps) into a single UI Chapter
         
         const homeBase = document.getElementById('narrativeHomeBase').value.trim();
         const fleetCheckboxes = document.querySelectorAll('#narrativeFleetCheckboxes input[type="checkbox"]:checked');
@@ -1504,28 +1575,22 @@
             }
         ];
 
-        // Filter arcs to only those the player has ships for
         let validArcs = campaignArcs.filter(arc => arc.reqShip.some(ship => availableFleet.includes(ship)));
         if(validArcs.length === 0) throw new Error("Your selected fleet cannot complete any available campaigns. Try checking more ship types.");
 
-        // Select ONE cohesive campaign arc for this generation
         const selectedArc = validArcs[Math.floor(Math.random() * validArcs.length)];
 
         currentNarrativeData = [];
         let poolCopy = [...searchPool];
         loader.innerText = `3/3: Drafting Operational Directives...`;
 
-        // --- NEW REPLACEMENT LOOP ---
         for(let c = 0; c < lengthCount; c++) {
-            // We need 2 systems per chapter to fill sys1, loc1, sys2, loc2
             if(poolCopy.length < 2) break; 
             
             let chapterSteps = [];
             
-            // Get the specific chapter text template
             const chapterFunc = selectedArc.chapters[c % selectedArc.chapters.length];
             
-            // Fetch System & Location 1
             let sys1 = poolCopy.pop();
             const stationRes1 = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys1.name)}`);
             const stationData1 = await stationRes1.json();
@@ -1536,7 +1601,6 @@
                 if(valid1.length > 0) loc1 = valid1[Math.floor(Math.random() * valid1.length)].name;
             }
 
-            // Fetch System & Location 2
             let sys2 = poolCopy.pop();
             const stationRes2 = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys2.name)}`);
             const stationData2 = await stationRes2.json();
@@ -1547,7 +1611,6 @@
                 if(valid2.length > 0) loc2 = valid2[Math.floor(Math.random() * valid2.length)].name;
             }
 
-            // Check if we need to switch ships
             const canDoWithCurrent = selectedArc.reqShip.includes(activeShip);
             if(!canDoWithCurrent) {
                 const newShipType = selectedArc.reqShip.find(s => availableFleet.includes(s));
@@ -1563,13 +1626,11 @@
                 if(classNames[newShipType]) shipName = classNames[newShipType];
                 
                 chapterSteps.push(`[FLEET REASSIGNMENT] Return to ${switchLocation} and transfer to your <strong>${shipName}</strong> vessel.`);
-                activeShip = newShipType; // Update state
+                activeShip = newShipType; 
             }
             
-            // Generate the procedural steps, passing ALL 4 variables
             chapterSteps = chapterSteps.concat(chapterFunc(sys1.name, loc1, sys2.name, loc2));
 
-            // If it's the final chapter, add a conclusion step
             if(c === lengthCount - 1) {
                 const endLocation = homeBase ? `<strong>${homeBase}</strong>` : "a secure allied station";
                 chapterSteps.push(`Campaign objective achieved. Return to ${endLocation} for full debriefing and final payout.`);
@@ -1590,6 +1651,126 @@
         currentChapterIndex = 0;
         renderNarrativeUI(resultBox);
     }
+
+    // 5. Locator Logic (NEW)
+    async function handleLocatorLogic(searchPool, loader, resultBox, startSystemName) {
+        const targetName = document.getElementById('locatorTarget').value.trim();
+        const startStation = document.getElementById('locatorStation').value.trim();
+        const category = document.getElementById('locatorCategory').value;
+        const rarity = parseInt(document.getElementById('locatorRarity').value);
+        const radius = document.getElementById('locatorRadius').value;
+        const filterAllegiance = document.getElementById('locatorAllegiance').value;
+        const filterGovernment = document.getElementById('locatorGovernment').value;
+
+        if (!targetName) throw new Error("Please specify what you are looking for in the Target Query field.");
+        if (isNaN(rarity) || rarity < 1 || rarity > 100) throw new Error("Rarity must be between 1 and 100.");
+
+        const catMap = {
+            'lodging': { econ: [], type: [], negGov: [] }, 
+            'dining': { econ: ['Tourism', 'High Tech', 'Service', 'Corporate'], type: ['Orbis', 'Ocellus'], negGov: ['Anarchy'] },
+            'dive': { econ: ['Extraction', 'Refinery', 'Industrial'], type: ['Outpost', 'Asteroid base'], negGov: [] },
+            'leisure': { econ: ['Tourism', 'Service', 'High Tech'], type: [], negGov: [] },
+            'chopshop': { econ: [], type: ['Outpost', 'Planetary', 'Settlement'], gov: ['Anarchy', 'Dictatorship'], negGov: ['Democracy'] },
+            'medical': { econ: ['High Tech', 'Rescue', 'Damaged', 'Repair'], type: [], negGov: [] },
+            'military': { econ: ['Military'], type: [], negGov: [] },
+            'blackmarket': { econ: [], type: [], gov: ['Anarchy', 'Dictatorship'], negGov: [] } // Rely mostly on Gov type
+        };
+
+        const rules = catMap[category];
+
+        let filteredPool = searchPool;
+        if (filterAllegiance) filteredPool = filteredPool.filter(sys => sys.allegiance === filterAllegiance);
+        if (filterGovernment) filteredPool = filteredPool.filter(sys => sys.government === filterGovernment);
+
+        // Sort by distance so we check closest stuff first (including 0 distance)
+        filteredPool.sort((a,b) => a.distance - b.distance);
+
+        for (let i = 0; i < Math.min(filteredPool.length, 25); i++) { // limit to prevent insane hang times
+            const sys = filteredPool[i];
+            loader.innerText = `3/3: Sweeping ${sys.name} local network for profiles...`;
+            
+            const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+            const stationData = await stationRes.json();
+
+            if (!stationData.stations) continue;
+
+            let validStations = stationData.stations.filter(st => {
+                if ((st.type || "").includes("Fleet Carrier")) return false;
+                
+                const stEcon = st.economy || "";
+                const stType = st.type || "";
+                const stGov = st.government || sys.government || "";
+
+                if (rules.gov && rules.gov.length > 0 && !rules.gov.some(g => stGov.includes(g))) return false;
+                if (rules.negGov && rules.negGov.length > 0 && rules.negGov.some(g => stGov.includes(g))) return false;
+                
+                let econMatch = rules.econ.length === 0 || rules.econ.some(e => stEcon.includes(e));
+                let typeMatch = rules.type.length === 0 || rules.type.some(t => stType.includes(t));
+
+                // Flex rules for categories
+                if (category === 'dining' && (econMatch || typeMatch)) return true;
+                if (category === 'dive' && (econMatch || stGov.includes('Anarchy') || stType.includes('Outpost'))) return true;
+                if (category === 'blackmarket' && st.otherServices && st.otherServices.includes("Black Market")) return true;
+
+                return econMatch && typeMatch;
+            });
+
+            if (category === 'lodging') {
+                validStations = stationData.stations.filter(st => !(st.type || "").includes("Fleet Carrier"));
+            }
+
+            validStations = shuffleArray(validStations);
+
+            for (const st of validStations) {
+                // Determine if they actually have the thing based on rarity out of 100
+                const roll = Math.floor(Math.random() * 100) + 1; 
+                if (roll <= rarity) {
+                    
+                    let distText = "";
+                    if (sys.distance === 0 || sys.name.toLowerCase() === startSystemName.toLowerCase()) {
+                        const ls = st.distanceToArrival ? Math.round(st.distanceToArrival) : 'Unknown';
+                        distText = `${ls} Ls away (In System)`;
+                    } else {
+                        distText = `${sys.distance.toFixed(2)} Ly away`;
+                    }
+
+                    resultBox.innerHTML = `
+                        <div class="mission-title" style="color: var(--success); border-color: var(--success);">Scan Complete: Match Found</div>
+                        <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(80, 250, 123, 0.05); border-left-color: var(--success);">
+                            "Commander, we've located what you're looking for. Network traffic confirms an active profile."<br/><br/>
+                            <span style="color: var(--success);"><strong>${targetName}</strong></span> can be found at <strong>${st.name}</strong> in the <strong>${sys.name}</strong> system, ${distText}.
+                        </div>
+                        <div class="cargo-route" style="border-color: var(--success);">
+                            <div class="result-item">
+                                <div class="result-label">System</div>
+                                <div class="result-value flex-val">${sys.name} <button class="copy-btn" onclick="copyToClipboard('${sys.name}', this)" title="Copy System Name">📋</button></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">Location</div>
+                                <div class="result-value" style="color: #c9d1d9;">${st.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">[${st.type || 'Unknown'}]</span></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">Distance / Govt</div>
+                                <div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${distText} &nbsp;|&nbsp; <span style="color: var(--text-muted); font-weight: normal;">${st.government || sys.government || 'Unknown'}</span></div>
+                            </div>
+                        </div>
+                    `;
+                    resultBox.style.display = 'block';
+                    return; 
+                }
+            }
+            await new Promise(r => setTimeout(r, 400)); 
+        }
+
+        resultBox.innerHTML = `
+            <div class="mission-title" style="color: var(--danger); border-color: var(--danger);">Scan Failed</div>
+            <div class="mission-brief" style="color: #ffb86c; background-color: rgba(255, 85, 85, 0.05); border-left-color: var(--danger);">
+                "Network sweep concluded. No <strong>${targetName}</strong> found within ${radius} Ly based on the specified parameters. Please try again or attempt the search from another location."
+            </div>
+        `;
+        resultBox.style.display = 'block';
+    }
+
 
     // --- Render Functions ---
 
@@ -1820,7 +2001,6 @@
         resultBox.style.display = 'block';
     }
 
-    // Initialize UI constraints on load
     applyShipDirectives();
 </script>
 </body>
