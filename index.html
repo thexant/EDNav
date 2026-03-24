@@ -554,6 +554,7 @@
                     <option value="chopshop">Chop Shops & Underworld Contacts</option>
                     <option value="medical">Specialized Medical Facilities</option>
                     <option value="military">Mercenary Hubs & Military Surplus</option>
+                    <option value="shady">Shady Merchants & Low-Life Hangouts</option>
                     <option value="blackmarket">Smuggler Contacts / Fences</option>
                 </select>
             </div>
@@ -1670,10 +1671,11 @@
             'dining': { econ: ['Tourism', 'High Tech', 'Service', 'Corporate'], type: ['Orbis', 'Ocellus'], negGov: ['Anarchy'] },
             'dive': { econ: ['Extraction', 'Refinery', 'Industrial'], type: ['Outpost', 'Asteroid base'], negGov: [] },
             'leisure': { econ: ['Tourism', 'Service', 'High Tech'], type: [], negGov: [] },
+            'shady': { econ: ['Extraction', 'Refinery', 'Colony'], type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], negGov: ['Corporate', 'Democracy'] }, // <-- ADD THIS LINE
             'chopshop': { econ: [], type: ['Outpost', 'Planetary', 'Settlement'], gov: ['Anarchy', 'Dictatorship'], negGov: ['Democracy'] },
             'medical': { econ: ['High Tech', 'Rescue', 'Damaged', 'Repair'], type: [], negGov: [] },
             'military': { econ: ['Military'], type: [], negGov: [] },
-            'blackmarket': { econ: [], type: [], gov: ['Anarchy', 'Dictatorship'], negGov: [] } // Rely mostly on Gov type
+            'blackmarket': { econ: [], type: [], gov: ['Anarchy', 'Dictatorship'], negGov: [] } 
         };
 
         const rules = catMap[category];
