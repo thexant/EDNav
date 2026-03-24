@@ -364,6 +364,7 @@
         <button class="tab" data-target="tourism" onclick="switchTab('tourism')">Tourism</button>
         <button class="tab" data-target="locator" onclick="switchTab('locator')" style="color: var(--success);">Roleplay Locator</button>
         <button class="tab" data-target="bgs" onclick="switchTab('bgs')" style="color: #f1fa8c;">BGS Operations</button>
+        <button class="tab" data-target="person" onclick="switchTab('person')" style="color: #ff79c6;">Person Trace</button>
         <button class="tab" data-target="narrative" onclick="switchTab('narrative')" style="color: var(--info);">Campaigns</button>
     </div>
 
@@ -607,7 +608,67 @@
         <div id="loader-locator" class="loader">Splicing into local routing hubs...</div>
         <div id="result-box-locator" class="result-box"></div>
     </div>
+    <div id="mode-person" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Cross-reference galactic databases, flight logs, and facial recognition networks to track down a specific individual.</p>
+        
+        <div class="form-group">
+            <label for="personSystem">Origin System *</label>
+            <input type="text" id="personSystem" placeholder="Where are you searching from?" required>
+        </div>
 
+        <div class="form-group">
+            <label for="personName">Target Name (Optional)</label>
+            <input type="text" id="personName" placeholder="e.g., 'Jack Calico' or leave blank for a general profile trace">
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 2;">
+                <label for="personRole">Target Profile / Role *</label>
+                <select id="personRole">
+                    <optgroup label="High-Profile Targets">
+                        <option value="criminal">Pirate Lord / Wanted Criminal</option>
+                        <option value="official">Corrupt Official / Politician</option>
+                        <option value="executive">Corporate Executive / VIP</option>
+                        <option value="defector">Rebel Defector / Deserter</option>
+                        <option value="scientist">Rogue Scientist / Engineer</option>
+                    </optgroup>
+                    <optgroup label="Underworld & Shadows">
+                        <option value="fence">Black Market Fence / Smuggler</option>
+                        <option value="prisoner">Convict / Prisoner of War</option>
+                    </optgroup>
+                    <optgroup label="Citizens & Workers">
+                        <option value="civilian">Civilian / Missing Person / Refugee</option>
+                        <option value="worker">Industrial Worker / Miner / Laborer</option>
+                        <option value="pilot">Independent Pilot / Freight Courier</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="personAllegiance">Known Affiliation</label>
+                <select id="personAllegiance">
+                    <option value="">Any / Unknown</option>
+                    <option value="Alliance">Alliance</option>
+                    <option value="Empire">Empire</option>
+                    <option value="Federation">Federation</option>
+                    <option value="Independent">Independent</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="personScope">Search Scope (Distance) *</label>
+            <select id="personScope">
+                <option value="50">Local Grid (Up to 50 Ly)</option>
+                <option value="300">Sector Sweep (Up to 300 Ly)</option>
+                <option value="2000">Galactic Database (Up to 2,000 Ly)</option>
+            </select>
+        </div>
+
+        <button class="submit-btn" id="personBtn" onclick="executeSearch('person')" style="background-color: #ff79c6; color: #000;">Run Database Trace</button>
+        
+        <div id="loader-person" class="loader">Accessing Interpol and flight registries...</div>
+        <div id="result-box-person" class="result-box"></div>
+    </div>
     <div id="mode-narrative" class="mode-content">
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate a multi-stage operational campaign. Faction handlers will provide step-by-step instructions.</p>
         
@@ -949,6 +1010,10 @@
             systemInputId = 'bgsSystem';
             radiusInputId = 'bgsRadius';
             btnId = 'bgsBtn';
+        } else if (mode === 'person') {
+            systemInputId = 'personSystem';
+            radiusInputId = 'personScope'; // We use the scope as the radius
+            btnId = 'personBtn';
         }
 
         const systemInput = document.getElementById(systemInputId).value.trim();
@@ -966,21 +1031,60 @@
         loader.style.display = 'block';
         resultBox.style.display = 'none';
         resultBox.innerHTML = '';
-
-        try {
+try {
             loader.innerText = '1/3: Getting jump coordinates...';
             const coordRes = await fetch(`https://www.edsm.net/api-v1/system?systemName=${encodeURIComponent(systemInput)}&showCoordinates=1`);
             const coordData = await coordRes.json();
             if (!coordData.name || !coordData.coords) throw new Error(`Could not find coordinates for "${systemInput}".`);
 
-            loader.innerText = '2/3: Plotting the surrounding sphere...';
-            let spanshSystems = await fetchSpanshSphere(coordData.coords, 150);
+            let searchCoords = coordData.coords;
 
-            // Keep distance > 0 unless it's the locator which should be able to check current system
-            let distThreshold = (mode === 'locator' || mode === 'bgs') ? -1 : 0;
+            // Deep Space Offset & Rubber-Band Trick for Person Locator
+            if (mode === 'person') {
+                const scopeRadius = parseFloat(radiusInput);
+                if (scopeRadius > 50) {
+                    // 1. Generate a random offset based on the chosen scope
+                    const randDist = 20 + Math.random() * (scopeRadius - 20);
+                    const theta = Math.random() * 2 * Math.PI;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    
+                    let targetX = coordData.coords.x + (randDist * Math.sin(phi) * Math.cos(theta));
+                    let targetY = coordData.coords.y + (randDist * Math.sin(phi) * Math.sin(theta));
+                    let targetZ = coordData.coords.z + (randDist * Math.cos(phi));
+
+                    // 2. The Rubber-Band Effect
+                    // Check if the user is generally inside/near the Bubble (within 500ly of Sol)
+                    const startDistFromSol = Math.sqrt(coordData.coords.x**2 + coordData.coords.y**2 + coordData.coords.z**2);
+                    
+                    if (startDistFromSol < 500) {
+                        // Check if the NEW target coordinates were thrown outside the Bubble (> 350ly from Sol)
+                        const targetDistFromSol = Math.sqrt(targetX**2 + targetY**2 + targetZ**2);
+                        if (targetDistFromSol > 350) {
+                            // Scale the coordinates back down so they land safely on the edge of populated space
+                            const scale = 350 / targetDistFromSol;
+                            targetX *= scale;
+                            targetY *= scale;
+                            targetZ *= scale;
+                        }
+                    }
+
+                    searchCoords = { x: targetX, y: targetY, z: targetZ };
+                }
+            }
+
+            loader.innerText = '2/3: Plotting the surrounding sphere...';
+            let spanshSystems = await fetchSpanshSphere(searchCoords, 150);
+
+            // Recalculate true distance from the player's ORIGIN, not the offset search point
+            spanshSystems.forEach(sys => {
+                sys.distance = calcDistance(coordData.coords, sys);
+            });
+
+            // DistThreshold ensures we don't return the exact system they are currently sitting in (unless it's locator/bgs/person)
+            let distThreshold = (mode === 'locator' || mode === 'bgs' || mode === 'person') ? -1 : 0;
             const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > distThreshold && sys.population > 0));
             
-            if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
+            if (searchPool.length === 0) throw new Error(`Search area exhausted. No populated systems found matching the trace parameters.`);
 
             if (mode === 'mission') {
                 await handleMissionLogic(searchPool, loader, resultBox);
@@ -992,6 +1096,8 @@
                 await handleLocatorLogic(searchPool, loader, resultBox, systemInput);
             } else if (mode === 'bgs') {
                 await handleBgsLogic(searchPool, loader, resultBox);
+            } else if (mode === 'person') {
+                await handlePersonLogic(searchPool, loader, resultBox);
             } else {
                 await handleRandomLogic(searchPool, loader, resultBox);
             }
@@ -2090,7 +2196,96 @@
 
         throw new Error(`No local factions are currently experiencing a ${targetState} state within ${document.getElementById('bgsRadius').value} Ly. Try expanding your radius.`);
     }
+    async function handlePersonLogic(searchPool, loader, resultBox) {
+        const targetName = document.getElementById('personName').value.trim() || "Unknown Suspect";
+        const role = document.getElementById('personRole').value;
+        const allegiance = document.getElementById('personAllegiance').value;
+        const scope = parseInt(document.getElementById('personScope').value);
 
+        // Define what system governments and economies map to specific roles
+        const roleMap = {
+            // High-Profile
+            'criminal': { gov: ['Anarchy', 'Dictatorship'], econ: [] },
+            'official': { gov: ['Corporate', 'Patronage', 'Democracy'], econ: [] },
+            'executive': { gov: ['Corporate'], econ: ['High Tech', 'Tourism', 'Industrial'] },
+            'defector': { gov: ['Anarchy', 'Prison Colony', 'Communism'], econ: [] },
+            'scientist': { gov: [], econ: ['High Tech', 'Terraforming', 'Service'] },
+            // Underworld
+            'fence': { gov: [], econ: ['Extraction', 'Refinery', 'Industrial'] },
+            'prisoner': { gov: ['Prison Colony'], econ: [] }, // Strictly forces Prison Colonies
+            // Citizens & Workers
+            'civilian': { gov: ['Democracy', 'Corporate', 'Cooperative', 'Communism'], econ: ['Agriculture', 'Service', 'Tourism', 'Colony'] },
+            'worker': { gov: [], econ: ['Extraction', 'Refinery', 'Industrial', 'Terraforming'] },
+            'pilot': { gov: [], econ: ['High Tech', 'Service', 'Tourism'] }
+        };
+
+        const reqs = roleMap[role];
+
+        let poolCopy = searchPool.filter(sys => sys.distance <= scope);
+        if (allegiance) poolCopy = poolCopy.filter(sys => sys.allegiance === allegiance);
+        poolCopy = shuffleArray(poolCopy);
+
+        for (let i = 0; i < Math.min(poolCopy.length, 30); i++) {
+            const sys = poolCopy[i];
+            loader.innerText = `3/3: Intercepting comms in ${sys.name}...`;
+
+            try {
+                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+                const stationData = await stationRes.json();
+
+                if (stationData.stations) {
+                    let validStations = stationData.stations.filter(st => {
+                        if ((st.type || "").includes("Fleet Carrier")) return false;
+
+                        const stGov = st.government || sys.government || "";
+                        const stEcon = st.economy || "";
+
+                        let govMatch = reqs.gov.length === 0 || reqs.gov.some(g => stGov.includes(g));
+                        let econMatch = reqs.econ.length === 0 || reqs.econ.some(e => stEcon.includes(e));
+
+                        if (role === 'fence' && st.otherServices && st.otherServices.includes("Black Market")) return true;
+
+                        return govMatch && econMatch;
+                    });
+
+                    if (validStations.length > 0) {
+                        const st = validStations[Math.floor(Math.random() * validStations.length)];
+                        const nameColor = targetName === "Unknown Suspect" ? "#ffb86c" : "#ff79c6";
+
+                        resultBox.innerHTML = `
+                            <div class="mission-title" style="color: #ff79c6; border-color: #ff79c6;">Database Trace Complete</div>
+                            <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(255, 121, 198, 0.05); border-left-color: #ff79c6;">
+                                "Commander, we got a hit. Cross-referencing local port authorities and security flight logs, we've tracked <strong style="color: ${nameColor};">${targetName}</strong> to a specific facility."
+                            </div>
+                            <div class="cargo-route" style="border-color: #ff79c6;">
+                                <div class="result-item">
+                                    <div class="result-label">System</div>
+                                    <div class="result-value flex-val">${sys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${sys.distance.toFixed(2)} Ly away)</span>
+                                        <button class="copy-btn" onclick="copyToClipboard('${sys.name}', this)" title="Copy System Name">📋</button>
+                                    </div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-label">Confirmed Location</div>
+                                    <div class="result-value" style="color: #c9d1d9;">${st.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">[${st.type || 'Unknown'}]</span></div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-label">Local Jurisdiction</div>
+                                    <div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${st.government || sys.government || 'Unknown'} &nbsp;|&nbsp; <span style="color: var(--text-muted); font-weight: normal;">${sys.allegiance || 'Independent'}</span></div>
+                                </div>
+                            </div>
+                        `;
+                        resultBox.style.display = 'block';
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error("Station fetch error", e);
+            }
+            await new Promise(r => setTimeout(r, 400));
+        }
+
+        throw new Error(`Could not locate ${targetName} within the selected grid. They might have jumped to an uncharted sector or are avoiding major ports. Try widening the search scope or altering the profile.`);
+    }
     // --- Render Functions ---
 
     function renderNarrativeUI(resultBox) {
