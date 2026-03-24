@@ -945,10 +945,10 @@
                 await handleNarrativeLogic(searchPool, loader, resultBox, coordData);
             } else if (mode === 'locator') {
                 await handleLocatorLogic(searchPool, loader, resultBox, systemInput);
-            } else {
-                await handleRandomLogic(searchPool, loader, resultBox);
             } else if (mode === 'bgs') {
                 await handleBgsLogic(searchPool, loader, resultBox);
+            } else {
+                await handleRandomLogic(searchPool, loader, resultBox);
             }
 
         } catch (error) {
