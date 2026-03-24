@@ -548,15 +548,24 @@
             <div class="form-group" style="flex: 2;">
                 <label for="locatorCategory">Category *</label>
                 <select id="locatorCategory">
-                    <option value="lodging">Pilot Lodgings & Basic Amenities</option>
-                    <option value="dining">Fine Dining & High-End Restaurants</option>
-                    <option value="dive">Dive Bars & Cantinas</option>
-                    <option value="leisure">Leisure & Entertainment Districts</option>
-                    <option value="chopshop">Chop Shops & Underworld Contacts</option>
-                    <option value="medical">Specialized Medical Facilities</option>
-                    <option value="military">Mercenary Hubs & Military Surplus</option>
-                    <option value="shady">Shady Merchants & Low-Life Hangouts</option>
-                    <option value="blackmarket">Smuggler Contacts / Fences</option>
+                    <optgroup label="Civilian & Lifestyle">
+                        <option value="lodging">Basic Pilot Lodgings & Hostels</option>
+                        <option value="dining">Fine Dining & High-End Restaurants</option>
+                        <option value="dive">Dive Bars & Rough Cantinas</option>
+                        <option value="leisure">Casinos & Luxury Entertainment</option>
+                    </optgroup>
+                    <optgroup label="Specialized Services">
+                        <option value="medical">Advanced Cybernetics & Trauma Centers</option>
+                        <option value="military">Mercenary Hubs & Surplus Depots</option>
+                        <option value="techbroker">Experimental Tech & Outfitters</option>
+                        <option value="research">Deep Space Labs & Bio-Institutes</option>
+                        <option value="religious">Cult Compounds & Pilgrimage Sites</option>
+                    </optgroup>
+                    <optgroup label="The Underworld">
+                        <option value="shady">Shady Merchants & Low-Life Hangouts</option>
+                        <option value="chopshop">Chop Shops & Stolen Ship Modding</option>
+                        <option value="blackmarket">Smuggler Contacts / Fences</option>
+                    </optgroup>
                 </select>
             </div>
             <div class="form-group" style="flex: 1;">
@@ -1753,15 +1762,91 @@
         if (isNaN(rarity) || rarity < 1 || rarity > 100) throw new Error("Rarity must be between 1 and 100.");
         
         const catMap = {
-            'lodging': { econ: [], type: [], negGov: [] }, 
-            'dining': { econ: ['Tourism', 'High Tech', 'Service'], type: ['Orbis', 'Ocellus'], negGov: ['Anarchy'] },
-            'dive': { econ: ['Extraction', 'Refinery', 'Industrial', 'Agriculture', 'Colony'], type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], negGov: [] },
-            'leisure': { econ: ['Tourism', 'Service', 'High Tech', 'Agriculture'], type: [], negGov: [] },
-            'shady': { econ: ['Extraction', 'Refinery', 'Colony'], type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], negGov: ['Corporate', 'Democracy'] },
-            'chopshop': { econ: [], type: ['Outpost', 'Planetary', 'Settlement'], gov: ['Anarchy', 'Dictatorship'], negGov: ['Democracy'] },
-            'medical': { econ: ['High Tech', 'Service', 'Military', 'Colony', 'Rescue', 'Damaged', 'Repair'], type: [], negGov: [] },
-            'military': { econ: ['Military'], type: [], negGov: [] },
-            'blackmarket': { econ: [], type: [], gov: ['Anarchy', 'Dictatorship'], negGov: [] } 
+            // --- Civilian & Lifestyle ---
+            'lodging': { 
+                econ: ['Agriculture', 'Industrial', 'High Tech', 'Service', 'Tourism'], 
+                type: ['Coriolis', 'Orbis', 'Ocellus', 'Outpost', 'Planetary Port'], 
+                gov: [], 
+                negGov: ['Anarchy', 'Prison Colony'], 
+                negAllegiance: [] 
+            },
+            'dining': { 
+                econ: ['Tourism', 'High Tech', 'Service'], 
+                type: ['Orbis', 'Ocellus', 'Coriolis'], 
+                gov: ['Corporate', 'Democracy', 'Patronage'], 
+                negGov: ['Anarchy', 'Prison Colony', 'Dictatorship', 'Communism'],
+                negAllegiance: [] 
+            },
+            'dive': { 
+                econ: ['Extraction', 'Refinery', 'Industrial', 'Colony'], 
+                type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], 
+                gov: [], 
+                negGov: ['Theocracy', 'Corporate', 'Patronage'],
+                negAllegiance: [] 
+            },
+            'leisure': { 
+                econ: ['Tourism', 'Service', 'High Tech'], 
+                type: ['Orbis', 'Ocellus'], 
+                gov: ['Democracy', 'Corporate', 'Patronage', 'Cooperative'], 
+                negGov: ['Prison Colony', 'Anarchy', 'Theocracy', 'Communism', 'Dictatorship'],
+                negAllegiance: [] 
+            },
+
+            // --- Specialized Services ---
+            'medical': { 
+                econ: ['High Tech', 'Service', 'Rescue', 'Damaged', 'Repair'], 
+                type: ['Orbis', 'Coriolis', 'Ocellus', 'Asteroid base', 'Planetary Port'], 
+                gov: [], 
+                negGov: ['Anarchy', 'Prison Colony'],
+                negAllegiance: [] 
+            },
+            'military': { 
+                econ: ['Military'], 
+                type: [], 
+                gov: ['Dictatorship', 'Feudal', 'Patronage', 'Corporate'], 
+                negGov: ['Democracy', 'Cooperative', 'Communism'],
+                negAllegiance: [] 
+            },
+            'techbroker': { // NEW: Experimental tech contacts
+                econ: ['High Tech', 'Industrial', 'Military'],
+                type: ['Coriolis', 'Orbis', 'Ocellus', 'Asteroid base', 'Planetary Port'],
+                gov: ['Democracy', 'Corporate', 'Cooperative', 'Dictatorship'],
+                negGov: ['Anarchy', 'Theocracy', 'Prison Colony', 'Feudal'],
+                negAllegiance: []
+            },
+            'research': { // NEW: Scientific roleplay
+                econ: ['High Tech', 'Service', 'Terraforming'],
+                type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'],
+                gov: ['Democracy', 'Corporate', 'Cooperative', 'Patronage'],
+                negGov: ['Anarchy', 'Dictatorship', 'Feudal'],
+                negAllegiance: []
+            },
+            'religious': { // NEW: Fringe zealots
+                econ: [], 
+                type: [], 
+                gov: ['Theocracy'], // Strict government requirement
+                negGov: [],
+                negAllegiance: []
+            },
+
+            // --- The Underworld ---
+            'shady': { 
+                econ: ['Extraction', 'Refinery', 'Industrial', 'Colony'], 
+                type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], 
+                gov: ['Anarchy', 'Dictatorship', 'Prison Colony', 'Feudal'], 
+                negGov: ['Democracy', 'Corporate', 'Cooperative', 'Confederacy', 'Patronage'],
+                negAllegiance: ['Federation', 'Empire'] 
+            },
+            'chopshop': { 
+                econ: ['Industrial', 'Extraction', 'Refinery', 'Colony'], 
+                type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], 
+                gov: ['Anarchy', 'Dictatorship', 'Prison Colony'], 
+                negGov: ['Democracy', 'Corporate', 'Confederacy'],
+                negAllegiance: [] 
+            },
+            'blackmarket': { 
+                econ: [], type: [], gov: [], negGov: [], negAllegiance: [] 
+            }
         };
 
         const rules = catMap[category];
@@ -1800,6 +1885,10 @@
                 if (category === 'dive' && (econMatch || stGov.includes('Anarchy') || stType.includes('Outpost'))) return true;
                 if (category === 'blackmarket' && st.otherServices && st.otherServices.includes("Black Market")) return true;
                 if (category === 'military' && (econMatch || ['Dictatorship', 'Feudal', 'Patronage'].some(g => stGov.includes(g)))) return true;
+                if (category === 'research' && (econMatch || stType.includes('Asteroid base'))) return true;
+                if (category === 'religious' && stGov.includes('Theocracy')) return true; // Strictly forces Theocracies
+                
+                return econMatch && typeMatch;
                 
                 return econMatch && typeMatch;
             });
