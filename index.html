@@ -1665,15 +1665,15 @@
 
         if (!targetName) throw new Error("Please specify what you are looking for in the Target Query field.");
         if (isNaN(rarity) || rarity < 1 || rarity > 100) throw new Error("Rarity must be between 1 and 100.");
-
+        
         const catMap = {
             'lodging': { econ: [], type: [], negGov: [] }, 
-            'dining': { econ: ['Tourism', 'High Tech', 'Service', 'Corporate'], type: ['Orbis', 'Ocellus'], negGov: ['Anarchy'] },
-            'dive': { econ: ['Extraction', 'Refinery', 'Industrial'], type: ['Outpost', 'Asteroid base'], negGov: [] },
-            'leisure': { econ: ['Tourism', 'Service', 'High Tech'], type: [], negGov: [] },
-            'shady': { econ: ['Extraction', 'Refinery', 'Colony'], type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], negGov: ['Corporate', 'Democracy'] }, // <-- ADD THIS LINE
+            'dining': { econ: ['Tourism', 'High Tech', 'Service'], type: ['Orbis', 'Ocellus'], negGov: ['Anarchy'] },
+            'dive': { econ: ['Extraction', 'Refinery', 'Industrial', 'Agriculture', 'Colony'], type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], negGov: [] },
+            'leisure': { econ: ['Tourism', 'Service', 'High Tech', 'Agriculture'], type: [], negGov: [] },
+            'shady': { econ: ['Extraction', 'Refinery', 'Colony'], type: ['Outpost', 'Asteroid base', 'Planetary', 'Settlement'], negGov: ['Corporate', 'Democracy'] },
             'chopshop': { econ: [], type: ['Outpost', 'Planetary', 'Settlement'], gov: ['Anarchy', 'Dictatorship'], negGov: ['Democracy'] },
-            'medical': { econ: ['High Tech', 'Rescue', 'Damaged', 'Repair'], type: [], negGov: [] },
+            'medical': { econ: ['High Tech', 'Service', 'Military', 'Colony', 'Rescue', 'Damaged', 'Repair'], type: [], negGov: [] },
             'military': { econ: ['Military'], type: [], negGov: [] },
             'blackmarket': { econ: [], type: [], gov: ['Anarchy', 'Dictatorship'], negGov: [] } 
         };
@@ -1713,7 +1713,8 @@
                 if (category === 'dining' && (econMatch || typeMatch)) return true;
                 if (category === 'dive' && (econMatch || stGov.includes('Anarchy') || stType.includes('Outpost'))) return true;
                 if (category === 'blackmarket' && st.otherServices && st.otherServices.includes("Black Market")) return true;
-
+                if (category === 'military' && (econMatch || ['Dictatorship', 'Feudal', 'Patronage'].some(g => stGov.includes(g)))) return true;
+                
                 return econMatch && typeMatch;
             });
 
