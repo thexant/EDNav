@@ -616,15 +616,22 @@
             <input type="text" id="personSystem" placeholder="Where are you searching from?" required>
         </div>
 
-        <div class="form-group">
-            <label for="personName">Target Name (Optional)</label>
-            <input type="text" id="personName" placeholder="e.g., 'Jack Calico' or leave blank for a general profile trace">
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label for="personName">Target Name (Optional)</label>
+                <input type="text" id="personName" placeholder="e.g., 'Jack Calico'">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="personFaction">Minor Faction (Optional)</label>
+                <input type="text" id="personFaction" placeholder="e.g., 'Dark Wheel'">
+            </div>
         </div>
 
         <div style="display: flex; gap: 10px;">
             <div class="form-group" style="flex: 2;">
                 <label for="personRole">Target Profile / Role *</label>
                 <select id="personRole">
+                    <option value="any">Any Profile / General Faction Trace</option>
                     <optgroup label="High-Profile Targets">
                         <option value="criminal">Pirate Lord / Wanted Criminal</option>
                         <option value="official">Corrupt Official / Politician</option>
@@ -2198,12 +2205,14 @@ try {
     }
     async function handlePersonLogic(searchPool, loader, resultBox) {
         const targetName = document.getElementById('personName').value.trim() || "Unknown Suspect";
+        const targetFaction = document.getElementById('personFaction').value.trim().toLowerCase();
         const role = document.getElementById('personRole').value;
         const allegiance = document.getElementById('personAllegiance').value;
         const scope = parseInt(document.getElementById('personScope').value);
 
         // Define what system governments and economies map to specific roles
         const roleMap = {
+            'any': { gov: [], econ: [] }, // Bypasses socio-economic filters for pure faction sweeps
             // High-Profile
             'criminal': { gov: ['Anarchy', 'Dictatorship'], econ: [] },
             'official': { gov: ['Corporate', 'Patronage', 'Democracy'], econ: [] },
@@ -2212,7 +2221,7 @@ try {
             'scientist': { gov: [], econ: ['High Tech', 'Terraforming', 'Service'] },
             // Underworld
             'fence': { gov: [], econ: ['Extraction', 'Refinery', 'Industrial'] },
-            'prisoner': { gov: ['Prison Colony'], econ: [] }, // Strictly forces Prison Colonies
+            'prisoner': { gov: ['Prison Colony'], econ: [] },
             // Citizens & Workers
             'civilian': { gov: ['Democracy', 'Corporate', 'Cooperative', 'Communism'], econ: ['Agriculture', 'Service', 'Tourism', 'Colony'] },
             'worker': { gov: [], econ: ['Extraction', 'Refinery', 'Industrial', 'Terraforming'] },
@@ -2237,20 +2246,29 @@ try {
                     let validStations = stationData.stations.filter(st => {
                         if ((st.type || "").includes("Fleet Carrier")) return false;
 
+                        const stFaction = (st.controllingFaction && st.controllingFaction.name) ? st.controllingFaction.name.toLowerCase() : "";
+                        
+                        // Strict Faction Check (if user entered one)
+                        if (targetFaction && !stFaction.includes(targetFaction)) return false;
+
                         const stGov = st.government || sys.government || "";
                         const stEcon = st.economy || "";
 
                         let govMatch = reqs.gov.length === 0 || reqs.gov.some(g => stGov.includes(g));
                         let econMatch = reqs.econ.length === 0 || reqs.econ.some(e => stEcon.includes(e));
 
-                        if (role === 'fence' && st.otherServices && st.otherServices.includes("Black Market")) return true;
+                        let profileMatch = govMatch && econMatch;
+                        if (role === 'fence') {
+                            profileMatch = st.otherServices && st.otherServices.includes("Black Market");
+                        }
 
-                        return govMatch && econMatch;
+                        return profileMatch;
                     });
 
                     if (validStations.length > 0) {
                         const st = validStations[Math.floor(Math.random() * validStations.length)];
                         const nameColor = targetName === "Unknown Suspect" ? "#ffb86c" : "#ff79c6";
+                        const printFaction = st.controllingFaction ? st.controllingFaction.name : (sys.controllingFaction ? sys.controllingFaction.name : 'Unknown Faction');
 
                         resultBox.innerHTML = `
                             <div class="mission-title" style="color: #ff79c6; border-color: #ff79c6;">Database Trace Complete</div>
@@ -2269,8 +2287,8 @@ try {
                                     <div class="result-value" style="color: #c9d1d9;">${st.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">[${st.type || 'Unknown'}]</span></div>
                                 </div>
                                 <div class="result-item">
-                                    <div class="result-label">Local Jurisdiction</div>
-                                    <div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${st.government || sys.government || 'Unknown'} &nbsp;|&nbsp; <span style="color: var(--text-muted); font-weight: normal;">${sys.allegiance || 'Independent'}</span></div>
+                                    <div class="result-label">Controlling Faction / Jurisdiction</div>
+                                    <div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${printFaction} &nbsp;|&nbsp; <span style="color: var(--text-muted); font-weight: normal;">${st.government || sys.government || 'Unknown'}</span></div>
                                 </div>
                             </div>
                         `;
@@ -2284,7 +2302,10 @@ try {
             await new Promise(r => setTimeout(r, 400));
         }
 
-        throw new Error(`Could not locate ${targetName} within the selected grid. They might have jumped to an uncharted sector or are avoiding major ports. Try widening the search scope or altering the profile.`);
+        let failMsg = `Could not locate ${targetName} within the selected grid.`;
+        if (targetFaction) failMsg = `Could not locate ${targetName} or any assets controlled by "${document.getElementById('personFaction').value.trim()}" in the selected grid.`;
+        
+        throw new Error(failMsg + ` They might have jumped to an uncharted sector. Try widening the search scope or altering the profile.`);
     }
     // --- Render Functions ---
 
