@@ -968,7 +968,7 @@
             let spanshSystems = await fetchSpanshSphere(coordData.coords, 150);
 
             // Keep distance > 0 unless it's the locator which should be able to check current system
-            let distThreshold = mode === 'locator' ? -1 : 0;
+            let distThreshold = (mode === 'locator' || mode === 'bgs') ? -1 : 0;
             const searchPool = shuffleArray(spanshSystems.filter(sys => sys.distance <= parseFloat(radiusInput) && sys.distance > distThreshold && sys.population > 0));
             
             if (searchPool.length === 0) throw new Error(`No populated systems found within ${radiusInput}Ly.`);
