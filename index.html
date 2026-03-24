@@ -853,10 +853,10 @@
     // --- Core API Calls ---
     async function fetchSpanshSphere(coords, size = 150) {
         // Cascade: Direct -> Stable Proxy -> Fallback Proxy
+        const targetUrl = "https://www.spansh.co.uk/api/systems/search";
         const endpoints = [
-            "https://www.spansh.co.uk/api/systems/search", // Direct
-            "https://api.codetabs.com/v1/proxy?quest=https://www.spansh.co.uk/api/systems/search", // Stable
-            "https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search" // Fallback
+            `https://cors-anywhere.herokuapp.com/${targetUrl}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` 
         ];
 
         let spanshRes = null;
