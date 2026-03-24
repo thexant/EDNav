@@ -363,6 +363,7 @@
         <button class="tab active" data-target="mission" onclick="switchTab('mission')">Mission Board</button>
         <button class="tab" data-target="tourism" onclick="switchTab('tourism')">Tourism</button>
         <button class="tab" data-target="locator" onclick="switchTab('locator')" style="color: var(--success);">Roleplay Locator</button>
+        <button class="tab" data-target="bgs" onclick="switchTab('bgs')" style="color: #f1fa8c;">BGS Operations</button>
         <button class="tab" data-target="narrative" onclick="switchTab('narrative')" style="color: var(--info);">Campaigns</button>
     </div>
 
@@ -648,6 +649,44 @@
         <div id="loader-narrative" class="loader">Constructing narrative threads...</div>
         <div id="result-box-narrative" class="result-box"></div>
     </div>
+    <div id="mode-bgs" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Locate minor factions in specific BGS states and view actionable solutions.</p>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 2;">
+                <label for="bgsSystem">Current System *</label>
+                <input type="text" id="bgsSystem" placeholder="e.g., Sol" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="bgsRadius">Radius (Ly) *</label>
+                <input type="number" id="bgsRadius" value="40" min="1" max="100" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="bgsState">Target Faction State *</label>
+            <select id="bgsState">
+                <option value="Famine">Famine</option>
+                <option value="Outbreak">Outbreak</option>
+                <option value="War">War / Civil War</option>
+                <option value="Election">Election</option>
+                <option value="Civil Unrest">Civil Unrest</option>
+                <option value="Lockdown">Lockdown</option>
+                <option value="Blight">Blight</option>
+                <option value="Drought">Drought</option>
+                <option value="Infrastructure Failure">Infrastructure Failure</option>
+                <option value="Terrorist Attack">Terrorist Attack</option>
+                <option value="Pirate Attack">Pirate Attack</option>
+                <option value="Expansion">Expansion</option>
+                <option value="Retreat">Retreat</option>
+            </select>
+        </div>
+
+        <button class="submit-btn" id="bgsBtn" onclick="executeSearch('bgs')" style="background-color: #f1fa8c; color: #000;">Scan BGS Network</button>
+        
+        <div id="loader-bgs" class="loader">Querying faction states...</div>
+        <div id="result-box-bgs" class="result-box"></div>
+    </div>
 </div>
 
 <script>
@@ -735,7 +774,7 @@
 
     // --- Scramble Protocol ---
     function executeScrambleProtocol() {
-        const tabs = ['mission', 'tourism', 'narrative', 'locator'];
+        const tabs = ['mission', 'tourism', 'narrative', 'locator', 'bgs'];
         const randomTab = tabs[Math.floor(Math.random() * tabs.length)];
         switchTab(randomTab);
 
@@ -763,13 +802,18 @@
             document.getElementById('locatorRarity').value = Math.floor(Math.random() * 80) + 20; // 20-100
             document.getElementById('locatorTarget').value = "Rumors and Leads";
             document.getElementById('locatorStation').value = "Docking Bay 42"; // Placeholder
+        } else if (randomTab === 'bgs') {
+            document.getElementById('bgsRadius').value = Math.floor(Math.random() * 50) + 20;
+            const bgsOptions = Array.from(document.getElementById('bgsState').options);
+            document.getElementById('bgsState').value = bgsOptions[Math.floor(Math.random() * bgsOptions.length)].value;
         }
-
+        
         const systemIds = {
             'mission': 'missionSystem',
             'tourism': 'tourismSystem',
             'narrative': 'narrativeSystem',
-            'locator': 'locatorSystem'
+            'locator': 'locatorSystem',
+            'bgs': 'bgsSystem'
         };
         const activeSysInput = document.getElementById(systemIds[randomTab]);
         if(!activeSysInput.value.trim()) activeSysInput.value = "Sol";
@@ -856,6 +900,10 @@
             systemInputId = 'locatorSystem';
             radiusInputId = 'locatorRadius';
             btnId = 'locatorBtn';
+        } else if (mode === 'bgs') {
+            systemInputId = 'bgsSystem';
+            radiusInputId = 'bgsRadius';
+            btnId = 'bgsBtn';
         }
 
         const systemInput = document.getElementById(systemInputId).value.trim();
@@ -899,7 +947,9 @@
                 await handleLocatorLogic(searchPool, loader, resultBox, systemInput);
             } else {
                 await handleRandomLogic(searchPool, loader, resultBox);
-            }
+            } else if (mode === 'bgs') {
+                await handleBgsLogic(searchPool, loader, resultBox);
+            } else {
 
         } catch (error) {
             resultBox.style.display = 'block';
@@ -1773,7 +1823,148 @@
         `;
         resultBox.style.display = 'block';
     }
+    async function handleBgsLogic(searchPool, loader, resultBox) {
+        const targetState = document.getElementById('bgsState').value;
+        const bgsSolutions = {
+            'Famine': {
+                desc: "Severe shortage of vital Commodities, causing a massive economic downturn.",
+                action: "Deliver Food Cartridges to their stations. Look for 'Distribution Centre' signal sources to drop off supplies.",
+                sourcing: "Agriculture"
+            },
+            'Outbreak': {
+                desc: "A contagious disease has begun sweeping through the minor faction's population.",
+                action: "Deliver Medicines. Combat missions and combat actions provide no benefit.",
+                sourcing: "High Tech"
+            },
+            'War': { 
+                desc: "Factions are resolving a conflict over assets via military force.",
+                action: "Fight in Conflict Zones, complete combat missions for the faction, and hand in Combat Bonds.",
+                sourcing: null
+            },
+            'Election': {
+                desc: "Factions with similar ideologies are resolving a conflict peacefully.",
+                action: "Conduct trade activity and complete non-combat missions for the competing party. Combat has no effect.",
+                sourcing: null
+            },
+            'Civil Unrest': {
+                desc: "Standard of living and security are dropping significantly.",
+                action: "Conduct Bounty Hunting in the system. All combat missions and actions for the minor faction are more effective.",
+                sourcing: null
+            },
+            'Lockdown': {
+                desc: "Low security and development have locked down system wealth and services.",
+                action: "Increased Bounty Hunting activity can shorten the lockdown period. Checkpoints and Pirate Activity signal sources will appear.",
+                sourcing: null
+            },
+            'Blight': {
+                desc: "An aggressive pathogen is destroying crops and depleting agricultural reserves.",
+                action: "Deliver Agronomic Treatment to the affected stations to counter the blight before it triggers a Famine.",
+                sourcing: "Industrial or Agriculture"
+            },
+            'Drought': {
+                desc: "Dwindling or disrupted water supplies are severely straining the economy.",
+                action: "Deliver Water and other emergency supplies to the affected systems.",
+                sourcing: "Ice Refinery or Extraction"
+            },
+            'Infrastructure Failure': {
+                desc: "Disrupted operations are negatively affecting Security and Economy.",
+                action: "Deliver Food and Machinery commodities to hasten automatic infrastructure repairs.",
+                sourcing: "Agriculture or Industrial"
+            },
+            'Terrorist Attack': {
+                desc: "A prosperous faction has been targeted by terrorists, crippling security.",
+                action: "Conduct Bounty Hunting and deliver legal Weapons for use by local authorities.",
+                sourcing: "High Tech or Military"
+            },
+            'Pirate Attack': {
+                desc: "Pirates are invading the system and frequently interdicting pilots.",
+                action: "Conduct Bounty Hunting. Look for 'Pirate Activity Detected' signal sources containing skilled pirates.",
+                sourcing: null
+            },
+            'Expansion': {
+                desc: "The faction has exceeded 75% influence and is attempting to enter a neighboring system.",
+                action: "Run missions for them in the target system to help them establish a firm foothold.",
+                sourcing: null
+            },
+            'Retreat': {
+                desc: "The faction has dropped below 2.5% influence and is being expelled from the system.",
+                action: "Urgently conduct trade and run missions to raise their influence above 2.5% before the state concludes.",
+                sourcing: null
+            }
+        };
 
+        const rule = bgsSolutions[targetState] || bgsSolutions['War'];
+
+        // Sort pool by distance
+        let poolCopy = [...searchPool].sort((a,b) => a.distance - b.distance);
+
+        for (let i = 0; i < Math.min(poolCopy.length, 30); i++) {
+            const sys = poolCopy[i];
+            loader.innerText = `3/3: Auditing local factions in ${sys.name}...`;
+
+            try {
+                const facRes = await fetch(`https://www.edsm.net/api-system-v1/factions?systemName=${encodeURIComponent(sys.name)}`);
+                const facData = await facRes.json();
+
+                if (facData.factions) {
+                    for (const faction of facData.factions) {
+                        let inState = false;
+                        
+                        // Check primary state
+                        if (faction.state === targetState || (targetState === 'War' && faction.state === 'Civil War')) inState = true;
+                        
+                        // Check active/recovering secondary states
+                        if (faction.activeStates && faction.activeStates.some(s => s.state === targetState || (targetState === 'War' && s.state === 'Civil War'))) inState = true;
+
+                        if (inState) {
+                            let sourcingHtml = "";
+                            if (rule.sourcing) {
+                                sourcingHtml = `
+                                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border);">
+                                        <div class="result-label" style="color: #f1fa8c;">Suggested Procurement:</div>
+                                        <div class="result-value" style="font-size: 0.95rem; font-weight: normal; color: var(--text-main);">Look for nearby <strong>${rule.sourcing}</strong> economy stations to purchase the required commodities.</div>
+                                    </div>
+                                `;
+                            }
+
+                            resultBox.innerHTML = `
+                                <div class="mission-title" style="color: #f1fa8c; border-color: #f1fa8c;">BGS Target Identified</div>
+                                <div class="mission-brief" style="color: #e6e6e6; background-color: rgba(241, 250, 140, 0.05); border-left-color: #f1fa8c;">
+                                    <strong>Status:</strong> ${rule.desc}<br><br>
+                                    <span style="color: #50fa7b;"><strong>Solution:</strong></span> ${rule.action}
+                                </div>
+                                <div class="cargo-route" style="border-color: #f1fa8c;">
+                                    <div class="result-item">
+                                        <div class="result-label">System</div>
+                                        <div class="result-value flex-val">${sys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${sys.distance.toFixed(2)} Ly away)</span>
+                                            <button class="copy-btn" onclick="copyToClipboard('${sys.name}', this)" title="Copy System Name">📋</button>
+                                        </div>
+                                    </div>
+                                    <div class="result-item">
+                                        <div class="result-label">Faction</div>
+                                        <div class="result-value" style="color: #c9d1d9;">${faction.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(${faction.allegiance || 'Independent'})</span></div>
+                                    </div>
+                                    <div class="result-item">
+                                        <div class="result-label">Current Influence</div>
+                                        <div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${(faction.influence * 100).toFixed(1)}%</div>
+                                    </div>
+                                    ${sourcingHtml}
+                                </div>
+                            `;
+                            resultBox.style.display = 'block';
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Faction fetch error", e);
+            }
+            // Small delay to prevent API throttling
+            await new Promise(r => setTimeout(r, 400));
+        }
+
+        throw new Error(`No local factions are currently experiencing a ${targetState} state within ${document.getElementById('bgsRadius').value} Ly. Try expanding your radius.`);
+    }
 
     // --- Render Functions ---
 
