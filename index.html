@@ -852,24 +852,54 @@
 
     // --- Core API Calls ---
     async function fetchSpanshSphere(coords, size = 150) {
-        const spanshRes = await fetch("https://corsproxy.io/?https://www.spansh.co.uk/api/systems/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                filters: {}, sort: [{ distance: { direction: "asc" } }], size: size,
-                reference_coords: { x: coords.x, y: coords.y, z: coords.z }
-            })
-        });
+        // A list of fallback CORS proxies to cycle through if one drops
+        const proxyList = [
+            "https://corsproxy.io/?",
+            "https://thingproxy.freeboard.io/fetch/"
+        ];
 
-        if (!spanshRes.ok) throw new Error("Spansh API error. Please try again in a moment.");
+        let spanshRes = null;
+        let lastError = "Unknown error";
+
+        // Attempt the POST request through the proxies
+        for (const proxyUrl of proxyList) {
+            try {
+                const targetUrl = `${proxyUrl}https://www.spansh.co.uk/api/systems/search`;
+                spanshRes = await fetch(targetUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        filters: {}, sort: [{ distance: { direction: "asc" } }], size: size,
+                        reference_coords: { x: coords.x, y: coords.y, z: coords.z }
+                    })
+                });
+
+                if (spanshRes.ok) {
+                    break; // Success! Break out of the loop.
+                } else {
+                    lastError = `HTTP ${spanshRes.status} via ${proxyUrl.split('/')[2]}`;
+                }
+            } catch (err) {
+                lastError = `Network fail via ${proxyUrl.split('/')[2]}: ${err.message}`;
+            }
+        }
+
+        // Surface the actual error to your UI so you aren't left guessing
+        if (!spanshRes || !spanshRes.ok) {
+            throw new Error(`Connection failure. Last attempt: ${lastError}`);
+        }
+
         const spanshData = await spanshRes.json();
         let spanshSystems = spanshData.results || [];
 
         if (spanshData.reference) {
             for (let attempts = 0; attempts < 15; attempts++) {
                 await new Promise(r => setTimeout(r, 1000));
+                
+                // Note: Spansh natively supports CORS for GET requests, so no proxy needed here.
                 const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${spanshData.reference}`);
                 const pollData = await pollRes.json();
+                
                 if (pollData.status === 'ok' && pollData.results) {
                     spanshSystems = pollData.results;
                     break;
