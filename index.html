@@ -1144,7 +1144,11 @@ try {
             // Deep Space Offset & Rubber-Band Trick for Person Locator
             if (mode === 'person') {
                 const scopeRadius = parseFloat(radiusInput);
-                if (scopeRadius > 50) {
+                const targetFaction = document.getElementById('personFaction').value.trim();
+                
+                // Disable the offset if looking for a specific minor faction, 
+                // since they are hyper-localized to their home clusters.
+                if (scopeRadius > 50 && !targetFaction) {
                     // 1. Generate a random offset based on the chosen scope
                     const randDist = 20 + Math.random() * (scopeRadius - 20);
                     const theta = Math.random() * 2 * Math.PI;
@@ -2399,10 +2403,10 @@ try {
     async function handlePersonLogic(searchPool, loader, resultBox) {
         let targetName = document.getElementById('personName').value.trim();
         
-        // If the user left it blank, generate a name and update the input box so they see it
+        // If the user left it blank, generate a name to use in the results, 
+        // but do not update the input box.
         if (!targetName) {
             targetName = generateTargetName();
-            document.getElementById('personName').value = targetName;
         }
         const targetFaction = document.getElementById('personFaction').value.trim().toLowerCase();
         const role = document.getElementById('personRole').value;
