@@ -640,21 +640,55 @@
                 <label for="personRole">Target Profile / Role *</label>
                 <select id="personRole">
                     <option value="any">Any Profile / General Faction Trace</option>
-                    <optgroup label="High-Profile Targets">
-                        <option value="criminal">Pirate Lord / Wanted Criminal</option>
-                        <option value="official">Corrupt Official / Politician</option>
-                        <option value="executive">Corporate Executive / VIP</option>
-                        <option value="defector">Rebel Defector / Deserter</option>
-                        <option value="scientist">Rogue Scientist / Engineer</option>
+                    
+                    <optgroup label="Everyday Civilians & Labor">
+                        <option value="laborer">Agricultural / Industrial Laborer</option>
+                        <option value="mechanic">Drydock Mechanic / Engineer</option>
+                        <option value="commuter">Civilian Commuter / Tourist</option>
+                        <option value="entertainer">Holo-Star / Hospitality Worker</option>
+                        <option value="medic">Trauma Surgeon / Clinic Medic</option>
                     </optgroup>
-                    <optgroup label="Underworld & Shadows">
-                        <option value="fence">Black Market Fence / Smuggler</option>
-                        <option value="prisoner">Convict / Prisoner of War</option>
+                
+                    <optgroup label="Trade & Logistics">
+                        <option value="hauler">Bulk Freighter Captain / Hauler</option>
+                        <option value="miner">Deep Core Miner / Rock-Hopper</option>
+                        <option value="merchant">Independent Merchant / Trader</option>
+                        <option value="courier">Data Courier / Journalist</option>
                     </optgroup>
-                    <optgroup label="Citizens & Workers">
-                        <option value="civilian">Civilian / Missing Person / Refugee</option>
-                        <option value="worker">Industrial Worker / Miner / Laborer</option>
-                        <option value="pilot">Independent Pilot / Freight Courier</option>
+                
+                    <optgroup label="The Downtrodden & Desperate">
+                        <option value="refugee">Displaced Person / Refugee</option>
+                        <option value="slave">Indentured Servant / Imperial Slave</option>
+                        <option value="scavenger">Drifter / Wreckage Scavenger</option>
+                        <option value="prisoner">Convict / Escaped Prisoner</option>
+                    </optgroup>
+                
+                    <optgroup label="Law, Military & Security">
+                        <option value="sys_auth">System Authority / Station Security</option>
+                        <option value="navy">Naval Strike Commander / Officer</option>
+                        <option value="hunter">Licensed Bounty Hunter / Skip-Tracer</option>
+                        <option value="mercenary">Independent Mercenary / Gun-for-Hire</option>
+                        <option value="ax_pilot">Anti-Xeno (AX) Defense Pilot</option>
+                    </optgroup>
+                
+                    <optgroup label="The Underworld">
+                        <option value="pirate_lord">Pirate Lord / Syndicate Boss</option>
+                        <option value="smuggler">Smuggler / Blockade Runner</option>
+                        <option value="fence">Black Market Fence / Fixer</option>
+                        <option value="assassin">Unlicensed Assassin / Wetwork Spec</option>
+                    </optgroup>
+                
+                    <optgroup label="High Society & Politics">
+                        <option value="imperial_noble">Imperial Senator / Patronage Noble</option>
+                        <option value="federal_diplomat">Federal Diplomat / Bureaucrat</option>
+                        <option value="executive">Mega-Corp Executive / VIP</option>
+                        <option value="politician">Corrupt Politician / Local Leader</option>
+                    </optgroup>
+                
+                    <optgroup label="Fringe & Lore-Specific">
+                        <option value="explorer">Deep Space Explorer / Cartographer</option>
+                        <option value="researcher">Guardian / Biological Researcher</option>
+                        <option value="far_god">Far God Cultist / Religious Pilgrim</option>
                     </optgroup>
                 </select>
             </div>
@@ -2330,20 +2364,50 @@ try {
 
         // Define what system governments and economies map to specific roles
         const roleMap = {
-            'any': { gov: [], econ: [] }, // Bypasses socio-economic filters for pure faction sweeps
-            // High-Profile
-            'criminal': { gov: ['Anarchy', 'Dictatorship'], econ: [] },
-            'official': { gov: ['Corporate', 'Patronage', 'Democracy'], econ: [] },
-            'executive': { gov: ['Corporate'], econ: ['High Tech', 'Tourism', 'Industrial'] },
-            'defector': { gov: ['Anarchy', 'Prison Colony', 'Communism'], econ: [] },
-            'scientist': { gov: [], econ: ['High Tech', 'Terraforming', 'Service'] },
-            // Underworld
-            'fence': { gov: [], econ: ['Extraction', 'Refinery', 'Industrial'] },
+            'any': { gov: [], econ: [] },
+            
+            // Everyday Civilians & Labor
+            'laborer': { gov: [], econ: ['Agriculture', 'Industrial', 'Extraction', 'Colony'] },
+            'mechanic': { gov: [], econ: ['Industrial', 'Extraction', 'Refinery', 'Service'] },
+            'commuter': { gov: [], econ: ['Tourism', 'Service', 'High Tech'] },
+            'entertainer': { gov: [], econ: ['Tourism', 'Service'] },
+            'medic': { gov: [], econ: ['High Tech', 'Service', 'Rescue', 'Damaged', 'Repair'] },
+
+            // Trade & Logistics
+            'hauler': { gov: [], econ: ['Refinery', 'Extraction', 'Industrial', 'Agriculture', 'High Tech'] },
+            'miner': { gov: [], econ: ['Extraction', 'Refinery', 'Colony'] },
+            'merchant': { gov: ['Corporate', 'Democracy', 'Cooperative'], econ: ['Industrial', 'High Tech', 'Agriculture', 'Refinery', 'Tourism'] },
+            'courier': { gov: [], econ: ['High Tech', 'Service', 'Tourism'] },
+
+            // The Downtrodden & Desperate
+            'refugee': { gov: ['Democracy', 'Corporate', 'Communism', 'Cooperative'], econ: ['Service', 'Agriculture', 'Colony', 'Rescue'] },
+            'slave': { gov: ['Patronage', 'Feudal', 'Dictatorship', 'Anarchy'], econ: ['Agriculture', 'Extraction', 'Industrial'] },
+            'scavenger': { gov: ['Anarchy'], econ: ['Extraction', 'Refinery', 'Colony', 'Industrial'] },
             'prisoner': { gov: ['Prison Colony'], econ: [] },
-            // Citizens & Workers
-            'civilian': { gov: ['Democracy', 'Corporate', 'Cooperative', 'Communism'], econ: ['Agriculture', 'Service', 'Tourism', 'Colony'] },
-            'worker': { gov: [], econ: ['Extraction', 'Refinery', 'Industrial', 'Terraforming'] },
-            'pilot': { gov: [], econ: ['High Tech', 'Service', 'Tourism'] }
+
+            // Law, Military & Security
+            'sys_auth': { gov: ['Democracy', 'Corporate', 'Patronage', 'Dictatorship'], econ: ['Military', 'High Tech', 'Service'] },
+            'navy': { gov: [], econ: ['Military'] },
+            'hunter': { gov: [], econ: ['Military', 'High Tech', 'Extraction'] },
+            'mercenary': { gov: ['Dictatorship', 'Feudal', 'Anarchy'], econ: ['Military', 'Extraction', 'Refinery'] },
+            'ax_pilot': { gov: [], econ: ['Military', 'Rescue', 'Damaged', 'Repair', 'High Tech'] },
+
+            // The Underworld
+            'pirate_lord': { gov: ['Anarchy'], econ: ['Extraction', 'Refinery'] },
+            'smuggler': { gov: ['Anarchy', 'Dictatorship'], econ: ['Agriculture', 'Colony', 'Extraction'] },
+            'fence': { gov: [], econ: ['Extraction', 'Refinery', 'Colony', 'Industrial'] },
+            'assassin': { gov: ['Anarchy', 'Dictatorship', 'Prison Colony'], econ: ['Military', 'High Tech'] },
+
+            // High Society & Politics
+            'imperial_noble': { gov: ['Patronage', 'Feudal'], econ: ['High Tech', 'Tourism', 'Agriculture'] },
+            'federal_diplomat': { gov: ['Democracy', 'Corporate'], econ: ['High Tech', 'Industrial', 'Service'] },
+            'executive': { gov: ['Corporate'], econ: ['High Tech', 'Industrial', 'Tourism', 'Service'] },
+            'politician': { gov: ['Democracy', 'Dictatorship', 'Cooperative', 'Communism'], econ: [] },
+
+            // Fringe & Lore-Specific
+            'explorer': { gov: [], econ: ['High Tech', 'Tourism', 'Service', 'Terraforming'] },
+            'researcher': { gov: [], econ: ['High Tech', 'Terraforming', 'Service', 'Military'] },
+            'far_god': { gov: ['Theocracy', 'Anarchy'], econ: ['Agriculture', 'Colony', 'Extraction'] }
         };
 
         const reqs = roleMap[role];
