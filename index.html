@@ -365,6 +365,7 @@
         <button class="tab" data-target="locator" onclick="switchTab('locator')" style="color: var(--success);">Roleplay Locator</button>
         <button class="tab" data-target="bgs" onclick="switchTab('bgs')" style="color: #f1fa8c;">BGS Operations</button>
         <button class="tab" data-target="person" onclick="switchTab('person')" style="color: #ff79c6;">Person Trace</button>
+        <button class="tab" data-target="poi" onclick="switchTab('poi')" style="color: #ffb86c;">Recon & POIs</button>
         <button class="tab" data-target="narrative" onclick="switchTab('narrative')" style="color: var(--info);">Campaigns</button>
     </div>
 
@@ -525,7 +526,48 @@
         <div id="loader-tourism" class="loader">Consulting galactic travel guides...</div>
         <div id="result-box-tourism" class="result-box"></div>
     </div>
-
+    <div id="mode-poi" class="mode-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Scan local space for minor points of interest, megaships, and specialized installations.</p>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 2;">
+                <label for="poiSystem">Current System *</label>
+                <input type="text" id="poiSystem" placeholder="e.g., Deciat" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="poiRadius">Radius (Ly) *</label>
+                <input type="number" id="poiRadius" value="30" min="1" max="150" required>
+            </div>
+        </div>
+    
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 2;">
+                <label for="poiType">Target POI Type</label>
+                <select id="poiType">
+                    <option value="Any">Any Minor POI (Mixed Results)</option>
+                    <option value="Megaship">Megaships (Flight Ops, Bulk Cruisers, etc.)</option>
+                    <option value="Installation">Space Installations (Comms Arrays, Bars, etc.)</option>
+                    <option value="Tourist Beacon">Tourist Beacons</option>
+                    <option value="Settlement">Odyssey Surface Settlements</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="poiCount">Max Results</label>
+                <input type="number" id="poiCount" value="3" min="1" max="15" required>
+            </div>
+        </div>
+    
+        <div class="checkbox-group" style="margin-bottom: 15px;">
+            <label class="checkbox-label" style="color: #ffb86c;">
+                <input type="checkbox" id="poiFleetCarriers"> Include Fleet Carriers in search
+            </label>
+        </div>
+    
+        <button class="submit-btn" id="poiBtn" onclick="executeSearch('poi')" style="background-color: #ffb86c; color: #000;">Initiate Deep Scan</button>
+        
+        <div id="loader-poi" class="loader">Tuning sensors to minor anomalies...</div>
+        <div id="result-box-poi" class="result-box"></div>
+    </div>
     <div id="mode-locator" class="mode-content">
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Scan local networks for specific facilities, contacts, or points of interest to track down your targets.</p>
         
@@ -1066,6 +1108,10 @@
             systemInputId = 'bgsSystem';
             radiusInputId = 'bgsRadius';
             btnId = 'bgsBtn';
+        } else if (mode === 'poi') {
+            systemInputId = 'poiSystem';
+            radiusInputId = 'poiRadius';
+            btnId = 'poiBtn';
         } else if (mode === 'person') {
             systemInputId = 'personSystem';
             radiusInputId = 'personScope'; // We use the scope as the radius
@@ -1152,6 +1198,8 @@ try {
                 await handleLocatorLogic(searchPool, loader, resultBox, systemInput);
             } else if (mode === 'bgs') {
                 await handleBgsLogic(searchPool, loader, resultBox);
+            } else if (mode === 'poi') {
+                await handlePoiLogic(searchPool, loader, resultBox);
             } else if (mode === 'person') {
                 await handlePersonLogic(searchPool, loader, resultBox);
             } else {
@@ -2487,6 +2535,102 @@ try {
         if (targetFaction) failMsg = `Could not locate ${targetName} or any assets controlled by "${document.getElementById('personFaction').value.trim()}" in the selected grid.`;
         
         throw new Error(failMsg + ` They might have jumped to an uncharted sector. Try widening the search scope or altering the profile.`);
+    }
+    // 6. Minor POI Logic
+    async function handlePoiLogic(searchPool, loader, resultBox) {
+        const targetType = document.getElementById('poiType').value;
+        const includeFC = document.getElementById('poiFleetCarriers').checked;
+        const maxResults = parseInt(document.getElementById('poiCount').value) || 1;
+
+        let resultsFound = [];
+        let poolCopy = [...searchPool].sort((a,b) => a.distance - b.distance);
+
+        for (let i = 0; i < Math.min(poolCopy.length, 40); i++) {
+            if (resultsFound.length >= maxResults) break;
+            
+            const sys = poolCopy[i];
+            loader.innerText = `3/3: Scanning ${sys.name} for anomalies...`;
+
+            try {
+                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
+                const stationData = await stationRes.json();
+
+                if (stationData.stations) {
+                    let validPOIs = stationData.stations.filter(st => {
+                        const type = st.type || "";
+                        
+                        // Handle Fleet Carriers
+                        if (type.includes("Fleet Carrier")) {
+                            return includeFC;
+                        }
+
+                        // Filter out standard large orbital stations and standard outposts unless looking for 'Any'
+                        const isStandardStation = type.includes("Coriolis") || type.includes("Orbis") || type.includes("Ocellus") || type.includes("Outpost") || type.includes("Planetary Port") || type.includes("Asteroid base");
+                        
+                        if (targetType === "Any") {
+                            // If 'Any', we want to exclude standard stations to only show minor POIs
+                            return !isStandardStation; 
+                        }
+
+                        if (targetType === "Megaship" && type.includes("Megaship")) return true;
+                        if (targetType === "Installation" && type.includes("Installation")) return true;
+                        if (targetType === "Tourist Beacon" && type === "Tourist Beacon") return true;
+                        if (targetType === "Settlement" && type.includes("Settlement")) return true;
+
+                        return false;
+                    });
+
+                    // Shuffle valid POIs in this system so we don't just grab the first one alphabetically
+                    validPOIs = shuffleArray(validPOIs);
+
+                    for (const poi of validPOIs) {
+                        if (resultsFound.length < maxResults) {
+                            resultsFound.push({ system: sys, location: poi });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("POI fetch error", e);
+            }
+            await new Promise(r => setTimeout(r, 400));
+        }
+
+        if (resultsFound.length === 0) {
+            throw new Error(`No matching POIs found within the specified radius. Try expanding your search or selecting a different POI type.`);
+        }
+
+        // Render Results
+        let html = `
+            <div class="mission-title" style="color: #ffb86c; border-color: #ffb86c;">Scan Complete: ${resultsFound.length} Contacts Found</div>
+        `;
+
+        resultsFound.forEach((res, index) => {
+            const st = res.location;
+            const sys = res.system;
+            const distLs = st.distanceToArrival ? Math.round(st.distanceToArrival) + ' Ls' : 'Unknown Ls';
+            
+            html += `
+            <div class="cargo-route" style="${index > 0 ? 'margin-top: 10px;' : ''} border-color: #ffb86c; background-color: rgba(255, 184, 108, 0.05);">
+                <div class="result-item">
+                    <div class="result-label" style="color: #ffb86c;">System</div>
+                    <div class="result-value flex-val">${sys.name} <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${sys.distance.toFixed(2)} Ly)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${sys.name}', this)" title="Copy System Name">📋</button>
+                    </div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Signal Source</div>
+                    <div class="result-value" style="color: #c9d1d9;">${st.name} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">[${distLs}]</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Classification</div>
+                    <div class="result-value" style="color: #c9d1d9; font-size: 0.95rem;">${st.type || 'Unknown'} &nbsp;|&nbsp; <span style="color: var(--text-muted); font-weight: normal;">${st.government || 'Independent'}</span></div>
+                </div>
+            </div>
+            `;
+        });
+
+        resultBox.innerHTML = html;
+        resultBox.style.display = 'block';
     }
     // --- Render Functions ---
 
