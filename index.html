@@ -1179,7 +1179,7 @@ try {
             }
 
             loader.innerText = '2/3: Plotting the surrounding sphere...';
-            let spanshSystems = await fetchSpanshSphere(searchCoords, 150);
+            let spanshSystems = await fetchSpanshSphere(searchCoords, 500);
 
             // Recalculate true distance from the player's ORIGIN, not the offset search point
             spanshSystems.forEach(sys => {
@@ -2549,7 +2549,7 @@ try {
         let resultsFound = [];
         let poolCopy = [...searchPool].sort((a,b) => a.distance - b.distance);
 
-        for (let i = 0; i < Math.min(poolCopy.length, 40); i++) {
+        for (let i = 0; i < Math.min(poolCopy.length, 75); i++) {
             if (resultsFound.length >= maxResults) break;
             
             const sys = poolCopy[i];
@@ -2561,26 +2561,24 @@ try {
 
                 if (stationData.stations) {
                     let validPOIs = stationData.stations.filter(st => {
-                        const type = st.type || "";
+                        const typeStr = (st.type || "").toLowerCase();
                         
-                        // Handle Fleet Carriers
-                        if (type.includes("Fleet Carrier")) {
+                        if (typeStr.includes("fleet carrier")) {
                             return includeFC;
                         }
-
-                        // Filter out standard large orbital stations and standard outposts unless looking for 'Any'
-                        const isStandardStation = type.includes("Coriolis") || type.includes("Orbis") || type.includes("Ocellus") || type.includes("Outpost") || type.includes("Planetary Port") || type.includes("Asteroid base");
+                    
+                        const isStandardStation = typeStr.includes("coriolis") || typeStr.includes("orbis") || typeStr.includes("ocellus") || typeStr.includes("outpost") || typeStr.includes("planetary port") || typeStr.includes("asteroid base");
                         
                         if (targetType === "Any") {
-                            // If 'Any', we want to exclude standard stations to only show minor POIs
                             return !isStandardStation; 
                         }
-
-                        if (targetType === "Megaship" && type.includes("Megaship")) return true;
-                        if (targetType === "Installation" && type.includes("Installation")) return true;
-                        if (targetType === "Tourist Beacon" && type === "Tourist Beacon") return true;
-                        if (targetType === "Settlement" && type.includes("Settlement")) return true;
-
+                    
+                        // Made case-insensitive and accounts for EDSM's "Mega ship" formatting
+                        if (targetType === "Megaship" && (typeStr.includes("megaship") || typeStr.includes("mega ship"))) return true;
+                        if (targetType === "Installation" && typeStr.includes("installation")) return true;
+                        if (targetType === "Tourist Beacon" && typeStr.includes("tourist beacon")) return true;
+                        if (targetType === "Settlement" && typeStr.includes("settlement")) return true;
+                    
                         return false;
                     });
 
