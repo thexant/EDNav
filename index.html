@@ -582,9 +582,15 @@
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="locatorTarget">Target Query (What are you looking for?) *</label>
-            <input type="text" id="locatorTarget" placeholder="e.g., A good bowl of Lavian noodles, an underworld fence" required>
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 2;">
+                <label for="locatorTarget">Target Query (What are you looking for?) *</label>
+                <input type="text" id="locatorTarget" placeholder="e.g., A good bowl of Lavian noodles, an underworld fence" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label for="locatorFaction">Minor Faction (Optional)</label>
+                <input type="text" id="locatorFaction" placeholder="e.g., 'Dark Wheel'">
+            </div>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -645,10 +651,16 @@
                 <select id="locatorGovernment">
                     <option value="">Any</option>
                     <option value="Anarchy">Anarchy</option>
+                    <option value="Communism">Communism</option>
+                    <option value="Confederacy">Confederacy</option>
+                    <option value="Cooperative">Cooperative</option>
                     <option value="Corporate">Corporate</option>
                     <option value="Democracy">Democracy</option>
                     <option value="Dictatorship">Dictatorship</option>
+                    <option value="Feudal">Feudal</option>
+                    <option value="Patronage">Patronage</option>
                     <option value="Prison Colony">Prison Colony</option>
+                    <option value="Theocracy">Theocracy</option>
                 </select>
             </div>
         </div>
@@ -2063,7 +2075,8 @@ try {
         const radius = document.getElementById('locatorRadius').value;
         const filterAllegiance = document.getElementById('locatorAllegiance').value;
         const filterGovernment = document.getElementById('locatorGovernment').value;
-
+        const targetFaction = document.getElementById('locatorFaction').value.trim().toLowerCase();
+        
         if (!targetName) throw new Error("Please specify what you are looking for in the Target Query field.");
         if (isNaN(rarity) || rarity < 1 || rarity > 100) throw new Error("Rarity must be between 1 and 100.");
         
@@ -2202,7 +2215,8 @@ try {
 
             let validStations = stationData.stations.filter(st => {
                 if ((st.type || "").includes("Fleet Carrier")) return false;
-                
+                const stFaction = (st.controllingFaction && st.controllingFaction.name) ? st.controllingFaction.name.toLowerCase() : "";
+                if (targetFaction && !stFaction.includes(targetFaction)) return false;
                 const stEcon = st.economy || "";
                 const stType = st.type || "";
                 const stGov = st.government || sys.government || "";
