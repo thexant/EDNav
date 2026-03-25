@@ -1868,7 +1868,60 @@ try {
         currentChapterIndex = 0;
         renderNarrativeUI(resultBox);
     }
+    // --- Dynamic Locator Weightings (Expanded) ---
+    function calculateWeightModifier(category, econ, type, gov, state) {
+        let mod = 0;
 
+        // --- Government Weightings ---
+        if (gov.includes('Anarchy') || gov.includes('Dictatorship')) {
+            if (['shady', 'chopshop', 'blackmarket', 'dive'].includes(category)) mod += 15;
+            if (['leisure', 'dining', 'medical'].includes(category)) mod -= 15;
+        }
+        if (gov.includes('Corporate') || gov.includes('Democracy')) {
+            if (['dining', 'leisure', 'medical', 'techbroker'].includes(category)) mod += 10;
+            if (['shady', 'chopshop'].includes(category)) mod -= 15;
+        }
+
+        // --- Economy Weightings ---
+        if (econ.includes('Tourism')) {
+            if (['leisure', 'dining', 'lodging'].includes(category)) mod += 20;
+            if (['chopshop', 'military'].includes(category)) mod -= 15;
+        }
+        if (econ.includes('Military')) {
+            if (['military', 'techbroker'].includes(category)) mod += 20;
+            if (['leisure', 'dining'].includes(category)) mod -= 15;
+        }
+
+        // --- Station Type Weightings ---
+        if (type.includes('Outpost') || type.includes('Asteroid base')) {
+            if (['dive', 'chopshop', 'shady'].includes(category)) mod += 10;
+        }
+
+        // --- BGS State Weightings (NEW) ---
+        const activeState = state || "";
+        
+        if (activeState.includes('Civil Unrest') || activeState.includes('Pirate Attack')) {
+            // Chaos breeds opportunity for the underworld, but ruins high-end living
+            if (['shady', 'blackmarket', 'military'].includes(category)) mod += 15;
+            if (['leisure', 'dining', 'tourism'].includes(category)) mod -= 20;
+        }
+        if (activeState.includes('Lockdown')) {
+            // Cops are everywhere. Hard to find illegal contacts, but military surplus is booming.
+            if (['shady', 'chopshop', 'blackmarket'].includes(category)) mod -= 25;
+            if (category === 'military') mod += 15;
+        }
+        if (activeState.includes('Boom') || activeState.includes('Public Holiday')) {
+            // Everyone has money to spend.
+            if (['leisure', 'dining', 'lodging', 'techbroker'].includes(category)) mod += 15;
+        }
+        if (activeState.includes('Outbreak') || activeState.includes('Famine')) {
+            // Desperation.
+            if (category === 'medical') mod += 20; // Clinics are working overtime
+            if (['leisure', 'dining'].includes(category)) mod -= 30; // Nobody is partying
+        }
+
+        return mod;
+    }
     // 5. Locator Logic (NEW)
     async function handleLocatorLogic(searchPool, loader, resultBox, startSystemName) {
         const targetName = document.getElementById('locatorTarget').value.trim();
@@ -2021,9 +2074,22 @@ try {
             validStations = shuffleArray(validStations);
 
             for (const st of validStations) {
-                // Determine if they actually have the thing based on rarity out of 100
+                // 1. Grab the station's BGS profile
+                const stEcon = st.economy || "";
+                const stType = st.type || "";
+                const stGov = st.government || sys.government || "";
+                const sysState = sys.state || sys.information?.factionState || ""; // Pulling state from the Spansh/EDSM system data
+                
+                // 2. Calculate the dynamic modifier, passing in the state
+                const modifier = calculateWeightModifier(category, stEcon, stType, stGov, sysState);
+                
+                // 3. Apply modifier and clamp the value between 1 and 100 
+                // (This prevents guaranteed successes or impossible rolls on extreme setups)
+                const effectiveRarity = Math.max(1, Math.min(100, rarity + modifier));
+
+                // 4. Roll against the new weighted rarity
                 const roll = Math.floor(Math.random() * 100) + 1; 
-                if (roll <= rarity) {
+                if (roll <= effectiveRarity) {
                     
                     let distText = "";
                     if (sys.distance === 0 || sys.name.toLowerCase() === startSystemName.toLowerCase()) {
