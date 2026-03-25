@@ -2600,19 +2600,31 @@ try {
                 if (spanshStations && spanshStations.length > 0) {
                     let validPOIs = spanshStations.filter(st => {
                         const typeStr = (st.type || "").toLowerCase();
+                        const nameStr = (st.name || "").toLowerCase(); // Now pulling the name string as well
                         
-                        if (typeStr.includes("fleet carrier")) return includeFC;
-                
-                        // Filter out standard large orbital stations and standard outposts unless looking for 'Any'
-                        const isStandardStation = typeStr.includes("coriolis") || typeStr.includes("orbis") || typeStr.includes("ocellus") || typeStr.includes("outpost") || typeStr.includes("planetary port") || typeStr.includes("asteroid base");
+                        if (typeStr.includes("fleet carrier")) {
+                            return includeFC;
+                        }
+
+                        const isStandardStation = typeStr.includes("coriolis") || typeStr.includes("orbis") || typeStr.includes("ocellus") || typeStr.includes("outpost") || typeStr.includes("planetary port") || typeStr.includes("asteroid base") || typeStr.includes("planetary outpost");
                         
-                        if (targetType === "Any") return !isStandardStation; 
-                
-                        if (targetType === "Megaship" && (typeStr.includes("megaship") || typeStr.includes("mega ship"))) return true;
-                        if (targetType === "Installation" && typeStr.includes("installation")) return true;
-                        if (targetType === "Tourist Beacon" && typeStr.includes("tourist beacon")) return true;
-                        if (targetType === "Settlement" && typeStr.includes("settlement")) return true;
-                
+                        if (targetType === "Any") {
+                            return !isStandardStation; 
+                        }
+
+                        // Catch formats where the target is in the name instead of the type
+                        if (targetType === "Megaship" && (typeStr.includes("megaship") || typeStr.includes("mega ship") || nameStr.includes("megaship") || nameStr.includes("mega ship"))) return true;
+                        
+                        // FIX: Spansh classifies most non-dockable POIs as 'Unknown' type, or puts the identifier in the name
+                        if (targetType === "Installation") {
+                            if (typeStr.includes("installation") || nameStr.includes("installation")) return true;
+                            if (typeStr === "unknown" || typeStr === "") return true;
+                            if (nameStr.includes("facility") || nameStr.includes("array") || nameStr.includes("bar")) return true;
+                        }
+
+                        if (targetType === "Tourist Beacon" && (typeStr.includes("tourist beacon") || nameStr.includes("tourist beacon"))) return true;
+                        if (targetType === "Settlement" && (typeStr.includes("settlement") || nameStr.includes("settlement"))) return true;
+
                         return false;
                     });
 
