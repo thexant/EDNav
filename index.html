@@ -982,8 +982,7 @@
         // Cascade: Direct -> Stable Proxy -> Fallback Proxy
         const targetUrl = "https://www.spansh.co.uk/api/systems/search";
         const endpoints = [
-            `https://cors-anywhere.herokuapp.com/${targetUrl}`,
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` 
+            `https://edsm.nicolash1298.workers.dev/?${targetUrl}`
         ];
 
         let spanshRes = null;
