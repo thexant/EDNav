@@ -1082,7 +1082,43 @@
         }
         return spanshSystems;
     }
-
+    async function fetchSpanshPOIs(systemName) {
+        const targetUrl = "https://www.spansh.co.uk/api/stations/search";
+        const proxyUrl = `https://edsm.nicolash1298.workers.dev/?${targetUrl}`;
+    
+        try {
+            const res = await fetch(proxyUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: { system_name: { value: systemName } },
+                    size: 100
+                })
+            });
+            
+            const data = await res.json();
+            let pois = data.results || [];
+            
+            // Spansh uses a reference polling system for these searches
+            if (data.reference) {
+                for (let i = 0; i < 15; i++) {
+                    await new Promise(r => setTimeout(r, 800));
+                    const pollRes = await fetch(`https://www.spansh.co.uk/api/results/${data.reference}`);
+                    if (!pollRes.ok) continue;
+                    
+                    const pollData = await pollRes.json();
+                    if (pollData.status === 'ok' && pollData.results) {
+                        pois = pollData.results;
+                        break;
+                    }
+                }
+            }
+            return pois;
+        } catch (e) {
+            console.error("Spansh POI fetch failed", e);
+            return [];
+        }
+    }
     async function executeSearch(mode) {
         let systemInputId = 'systemName';
         let radiusInputId = 'radius';
@@ -2547,8 +2583,10 @@ try {
         const maxResults = parseInt(document.getElementById('poiCount').value) || 1;
 
         let resultsFound = [];
-        let poolCopy = [...searchPool].sort((a,b) => a.distance - b.distance);
+        // Shuffle the pool so we don't get stuck in immediate neighbor systems
+        let poolCopy = shuffleArray([...searchPool]);
 
+        // Increased loop cap to account for rarity
         for (let i = 0; i < Math.min(poolCopy.length, 75); i++) {
             if (resultsFound.length >= maxResults) break;
             
@@ -2556,33 +2594,29 @@ try {
             loader.innerText = `3/3: Scanning ${sys.name} for anomalies...`;
 
             try {
-                const stationRes = await fetch(`https://www.edsm.net/api-system-v1/stations?systemName=${encodeURIComponent(sys.name)}`);
-                const stationData = await stationRes.json();
-
-                if (stationData.stations) {
-                    let validPOIs = stationData.stations.filter(st => {
+                // Fetching from Spansh
+                const spanshStations = await fetchSpanshPOIs(sys.name);
+                
+                if (spanshStations && spanshStations.length > 0) {
+                    let validPOIs = spanshStations.filter(st => {
                         const typeStr = (st.type || "").toLowerCase();
                         
-                        if (typeStr.includes("fleet carrier")) {
-                            return includeFC;
-                        }
-                    
+                        if (typeStr.includes("fleet carrier")) return includeFC;
+                
+                        // Filter out standard large orbital stations and standard outposts unless looking for 'Any'
                         const isStandardStation = typeStr.includes("coriolis") || typeStr.includes("orbis") || typeStr.includes("ocellus") || typeStr.includes("outpost") || typeStr.includes("planetary port") || typeStr.includes("asteroid base");
                         
-                        if (targetType === "Any") {
-                            return !isStandardStation; 
-                        }
-                    
-                        // Made case-insensitive and accounts for EDSM's "Mega ship" formatting
+                        if (targetType === "Any") return !isStandardStation; 
+                
                         if (targetType === "Megaship" && (typeStr.includes("megaship") || typeStr.includes("mega ship"))) return true;
                         if (targetType === "Installation" && typeStr.includes("installation")) return true;
                         if (targetType === "Tourist Beacon" && typeStr.includes("tourist beacon")) return true;
                         if (targetType === "Settlement" && typeStr.includes("settlement")) return true;
-                    
+                
                         return false;
                     });
 
-                    // Shuffle valid POIs in this system so we don't just grab the first one alphabetically
+                    // Shuffle valid POIs in this system
                     validPOIs = shuffleArray(validPOIs);
 
                     for (const poi of validPOIs) {
